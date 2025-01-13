@@ -1,13 +1,17 @@
 v6502c
 ======
 
-v6502c implements an emulated 6502 CPU in ANSI C.  It began as a port
-of my v6502 project, which is similar but is written in Rust. The
-reason I wrote this new version in ANSI C was so that I could use it
-as a component in retro computing projects for systems such as the
-classic Macintosh. It is meant to be as portable as possible and to
-rely on the C standard library as little as possible so that it can be
-ported to as wide a variety of systems as possible.
+# Note: This is a work in progress! It is not yet ready to use.
+
+v6502c implements an emulated 6502 CPU in ANSI C.
+
+It began as a port of my v6502 project, which is similar but is
+written in Rust. The reason I wrote this new version in ANSI C was so
+that I could use it as a component in retro computing projects for
+systems such as the classic Macintosh. It is meant to be as portable
+as possible and to rely on the C standard library as little as
+possible so that it can be ported to as wide a variety of systems as
+possible.
 
 The emulated CPU is not intended to be cycle accurate. It won't run
 demos very well, but it should be able to execute things like msbasic
