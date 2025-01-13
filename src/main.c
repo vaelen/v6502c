@@ -126,15 +126,20 @@ int main() {
 
     if (l == EOF) {
       done = 1;
-    } else if(starts_with("H", cmd) || starts_with("HELP", cmd)) {
+    } else if ((strlen(cmd) == 1 && starts_with("H", cmd)) ||
+	       starts_with("HELP", cmd)) {
       print_help();
-    } else if (starts_with("Q", cmd) || starts_with("QUIT", cmd)) {
+    } else if ((strlen(cmd) == 1 && starts_with("Q", cmd)) ||
+	       starts_with("QUIT", cmd)) {
       done = 1;
-    } else if (starts_with("R", cmd) || starts_with("RESET", cmd)) {
+    } else if ((strlen(cmd) == 1 && starts_with("R", cmd)) ||
+	       starts_with("RESET", cmd)) {
       cpu_reset(&c);
-    } else if (starts_with("S", cmd) || starts_with("STEP", cmd)) {
+    } else if ((strlen(cmd) == 1 && starts_with("S", cmd)) ||
+	       starts_with("STEP", cmd)) {
       cpu_step(&c);
-    } else if (starts_with("G", cmd) || starts_with("GO", cmd)) {
+    } else if ((strlen(cmd) == 1 && starts_with("G", cmd)) ||
+	       starts_with("GO", cmd)) {
       cpu_run(&c);
     } else if (starts_with("?", cmd)) {
       print_pc(c.pc);
