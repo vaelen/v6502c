@@ -129,10 +129,6 @@ void print_help() {
   puts("  EXPORT SREC - Export Motorola S-Record formatted data.");
 }
 
-int starts_with(char *prefix, char *s) {
-  return !strncmp(prefix, s, strlen(prefix));
-}
-
 void not_implemented() {
   puts("Not Yet Implemented");
 }
@@ -150,37 +146,49 @@ int is_whitespace(char c) {
   return 0;
 }
 
-/** Removes leading whitespace **/
-char *ltrim(char *s) {
-  char *trimmed = s;
-  while (trimmed[0] != 0) {
-    if (is_whitespace(trimmed[0])) {
-      trimmed = trimmed + 1;
-    } else {
-      return trimmed;
-    }
-  }
-  return trimmed;
-}
+/** Parameter parsing */
+void parseargs(char *cmdbuf, int *argc, char **argv) {
+  int count = 0;
+  char *current, *end;
 
-/** Removes trailing whitespace **/
-void rtrim(char *s) {
-  int i = strlen(s);
-  while (i > 0) {
-    i = i - 1;
-    if (is_whitespace(s[i])) {
-      s[i] = 0;
+  if (argv == 0 || argc == 0 || cmdbuf == 0) return;
+
+  current = cmdbuf;
+  end = cmdbuf + strlen(cmdbuf);
+  
+  /** tokenize by whitespace */
+
+  argv[count] = 0;
+  
+  while (current < end) {
+    if (is_whitespace(*current)) {
+      if (argv[count] != 0) {
+	/* Found the last non-whitepace character */
+	*current = 0;
+	count = count + 1;
+	argv[count] = 0;
+      }
     } else {
-      return;
+	if (argv[count] == 0) {
+	  /* Found the first non-whitespace character */
+	  argv[count] = current;
+	}
     }
+    current = current + 1;
   }
+
+ if (argv[count] != 0) {
+   count = count + 1;
+ }
+  
+  *argc = count;
 }
 
 int main() {
 
   cpu c;
-  int l = 0, done = 0, cmdlen = 0;
-  char cmdbuf[256], *cmd;
+  int l = 0, done = 0, cmdlen = 0, argc = 0, i = 0;
+  char cmdbuf[256], *cmd, *argv[256];
   address a = 0;
   byte b = 0;
 
@@ -204,12 +212,19 @@ int main() {
       cmdbuf[l] = 0;
     }
 
-    cmd = cmdbuf;
+    parseargs(cmdbuf, &argc, argv);
 
-    cmd = ltrim(cmd);
-    rtrim(cmd);
+    cmd = argv[0];
+    if (cmd == 0) {
+      cmd = "";
+    }
 
-    puts(cmd);
+    /*
+    printf("Command: %s\n", cmd);
+    for (i = 0; i < argc; i++) {
+      printf("  Param %d: '%s'\n", i, argv[i]);
+    }
+    */
     
     cmdlen = strlen(cmd);
     
@@ -217,59 +232,68 @@ int main() {
       done = 1;
     } else if (cmdlen == 0) {
       /** Empty command, do nothing. */
-    } else if ((cmdlen == 1 && starts_with("H", cmd)) ||
-	       starts_with("HELP", cmd)) {
+    } else if (!strcmp("H", cmd) || !strcmp("HELP", cmd)) {
       print_help();
-    } else if ((cmdlen == 1 && starts_with("Q", cmd)) ||
-	       starts_with("QUIT", cmd)) {
+    } else if (!strcmp("Q", cmd) || !strcmp("QUIT", cmd)) {
       done = 1;
-    } else if ((cmdlen == 1 && starts_with("R", cmd)) ||
-	       starts_with("RESET", cmd)) {
+    } else if (!strcmp("R", cmd) || !strcmp("RESET", cmd)) {
       cpu_reset(&c);
-    } else if ((cmdlen == 1 && starts_with("S", cmd)) ||
-	       starts_with("STEP", cmd)) {
+    } else if (!strcmp("S", cmd) || !strcmp("STEP", cmd)) {
       cpu_step(&c);
-    } else if ((cmdlen == 1 && starts_with("G", cmd)) ||
-	       (cmdlen == 2 && starts_with("GO", cmd))) {
+    } else if (!strcmp("G", cmd) || !strcmp("GO", cmd)) {
       cpu_run(&c);
-    } else if (cmdlen == 1 && starts_with("?", cmd)) {
+    } else if (!strcmp("?", cmd)) {
       print_pc(c.pc);
       print_register(" A", c.a);
       print_register(" X", c.x);
       print_register(" Y", c.y);
       print_register("SR", c.sr);
       print_register("SP", c.sp);
-    } else if (cmdlen == 2 && starts_with("PC", cmd)) {
-      print_pc(c.pc);
-    } else if (starts_with("PC ", cmd)) {
+    } else if (!strcmp("PC", cmd)) {
+      if (argc == 1) {
+	print_pc(c.pc);
+      } else {
+	not_implemented();
+      }
+    } else if (!strcmp("A", cmd)) {
+      if (argc == 1) {
+	print_register("A", c.a);
+      } else {
+	not_implemented();
+      }
+    } else if (!strcmp("X", cmd)) {
+      if (argc == 1) {
+	print_register("X", c.x);
+      } else {
+	not_implemented();
+      }
+    } else if (!strcmp("Y", cmd)) {
+      if (argc == 1) {
+	print_register("Y", c.y);
+      } else {
+	not_implemented();
+      }
+    } else if (!strcmp("SR", cmd)) {
+      if (argc == 1) {
+	print_register("SR", c.sr);
+      } else {
+	not_implemented();
+      }
+    } else if (!strcmp("SP", cmd)) {
+      if (argc == 1) {
+	print_register("SP", c.sp);
+      } else {
+	not_implemented();
+      }
+    } else if (!strcmp("M", cmd)) {
+      if (argc == 1) {
+	print_memory(&c, 0x0000, 0x00FF);
+      } else {
+	not_implemented();
+      }
+    } else if (!strcmp("IMPORT", cmd)) {
       not_implemented();
-    } else if (cmdlen == 1 && starts_with("A", cmd)) {
-      print_register("A", c.a);
-    } else if (starts_with("PC ", cmd)) {
-      not_implemented();
-    } else if (cmdlen == 1 && starts_with("X", cmd)) {
-      print_register("X", c.x);
-    } else if (starts_with("PC ", cmd)) {
-      not_implemented();
-    } else if (cmdlen == 1 && starts_with("Y", cmd)) {
-      print_register("Y", c.y);
-    } else if (starts_with("PC ", cmd)) {
-      not_implemented();
-    } else if (cmdlen == 2 && starts_with("SR", cmd)) {
-      print_register("SR", c.sr);
-    } else if (starts_with("PC ", cmd)) {
-      not_implemented();
-    } else if (cmdlen == 2 && starts_with("SP", cmd)) {
-      print_register("SP", c.sp);
-    } else if (starts_with("PC ", cmd)) {
-      not_implemented();
-    } else if (cmdlen == 1 && starts_with("M", cmd)) {
-      print_memory(&c, 0x0000, 0x00FF);
-    } else if (starts_with("M ", cmd)) {
-      not_implemented();
-    } else if (starts_with("IMPORT ", cmd)) {
-      not_implemented();
-    } else if (starts_with("EXPORT ", cmd)) {
+    } else if (!strcmp("EXPORT", cmd)) {
       not_implemented();
     } else {
       printf("Invalid command: %s\n", cmd);
