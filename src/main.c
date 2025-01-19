@@ -28,6 +28,11 @@
 
 #include <v6502.h>
 
+typedef struct addrr {
+  address start;
+  address end;
+} address_range;
+
 byte mem[0xFFFF];
 
 byte read(address a) {
@@ -193,40 +198,59 @@ void parseargs(char *cmdbuf, int *argc, char **argv) {
 }
 
 /** Parse a byte value in hexadecimal */
-int parsebyte(char *s) {
+int parse_byte(char *s, byte *b) {
   int n;
   unsigned int v;
   n = sscanf(s, "%2x", &v);
-  if (n <= 0) {
+  if (n < 1) {
     n = sscanf(s, "%2X", &v);
-    if (n <= 0) {
-      return -1;
+    if (n < 1) {
+      return 0;
     }
   }
-  return v;
+  *b = (byte) v;
+  return 1;
 }
 
 /** Parse an address value in hexadecimal */
-int parseaddress(char *s) {
+int parse_address(char *s, address *a) {
   int n;
   unsigned int v;
   n = sscanf(s, "%4x", &v);
-  if (n <= 0) {
+  if (n < 1) {
     n = sscanf(s, "%4X", &v);
-    if (n <= 0) {
-      return -1;
+    if (n < 1) {
+      return 0;
     }
   }
-  return v;
+  *a = (address) v;
+  return 1;
+}
+
+/** Parse an address range value in hexadecimal */
+int parse_address_range(char *s, address_range *r) {
+  int n;
+  unsigned int start, end;
+  n = sscanf(s, "%4x.%4x", &start, &end);
+  if (n < 2) {
+    n = sscanf(s, "%4X.%4X", &start, &end);
+    if (n < 2) {
+      return 0;
+    }
+  }
+  r->start = (address) start;
+  r->end = (address) end;
+  return 1;
 }
 
 int main() {
 
   cpu c;
-  int l = 0, done = 0, cmdlen = 0, argc = 0, i = 0, v = 0;
-  char cmdbuf[256], *cmd, *argv[256];
+  int l = 0, done = 0, cmdlen = 0, argc = 0, i = 0, editing = 0, firstarg = 0;
+  char cmdbuf[256], *cmd, *argv[256], *arg;
   address a = 0;
   byte b = 0;
+  address_range ar;
 
   c.read = read;
   c.write = write;
@@ -289,12 +313,10 @@ int main() {
       if (argc == 1) {
 	print_pc(c.pc);
       } else {
-	v = parseaddress(argv[1]);
-	if (v < 0) {
+	a = c.pc;
+	if (!parse_address(argv[1], &c.pc)) {
 	  printf("Invalid value: %s\n", argv[1]);
 	} else {
-	  a = c.pc;
-	  c.pc = (address) v;
 	  print_pc_change(a, c.pc);
 	}
       }
@@ -302,12 +324,10 @@ int main() {
       if (argc == 1) {
 	print_register("A", c.a);
       } else {
-	v = parsebyte(argv[1]);
-	if (v < 0) {
+	b = c.a;
+	if (!parse_byte(argv[1], &c.a)) {
 	  printf("Invalid value: %s\n", argv[1]);
 	} else {
-	  b = c.a;
-	  c.a = (byte) v;
 	  print_register_change("A", b, c.a);
 	}
       }
@@ -315,12 +335,10 @@ int main() {
       if (argc == 1) {
 	print_register("X", c.x);
       } else {
-	v = parsebyte(argv[1]);
-	if (v < 0) {
+	b = c.x;
+	if (!parse_byte(argv[1], &c.x)) {
 	  printf("Invalid value: %s\n", argv[1]);
 	} else {
-	  b = c.x;
-	  c.x = (byte) v;
 	  print_register_change("X", b, c.x);
 	}
       }
@@ -328,12 +346,10 @@ int main() {
       if (argc == 1) {
 	print_register("Y", c.y);
       } else {
-	v = parsebyte(argv[1]);
-	if (v < 0) {
+	b = c.y;
+	if (!parse_byte(argv[1], &c.y)) {
 	  printf("Invalid value: %s\n", argv[1]);
 	} else {
-	  b = c.y;
-	  c.y = (byte) v;
 	  print_register_change("Y", b, c.y);
 	}
       }
@@ -341,12 +357,10 @@ int main() {
       if (argc == 1) {
 	print_register("SR", c.sr);
       } else {
-	v = parsebyte(argv[1]);
-	if (v < 0) {
+	b = c.sr;
+	if (!parse_byte(argv[1], &c.sr)) {
 	  printf("Invalid value: %s\n", argv[1]);
 	} else {
-	  b = c.sr;
-	  c.sr = (byte) v;
 	  print_register_change("SR", b, c.sr);
 	}
       }
@@ -354,12 +368,10 @@ int main() {
       if (argc == 1) {
 	print_register("SP", c.sp);
       } else {
-	v = parsebyte(argv[1]);
-	if (v < 0) {
+	b = c.sp;
+	if (!parse_byte(argv[1], &c.sp)) {
 	  printf("Invalid value: %s\n", argv[1]);
 	} else {
-	  b = c.sp;
-	  c.sp = (byte) v;
 	  print_register_change("SP", b, c.sp);
 	}
       }
@@ -367,7 +379,47 @@ int main() {
       if (argc == 1) {
 	print_memory(&c, 0x0000, 0x00FF);
       } else {
-	not_implemented();
+	editing = 0;
+	a = 0;
+	ar.start = 0;
+	ar.end = 0;
+	for (i = 1; i < argc; i++) {
+	  arg = argv[i];
+	  if (!editing) {
+	    if (parse_address_range(arg, &ar)) {
+	      if (arg[strlen(arg)-1] == ':') {
+		editing = 1;
+		a = ar.start;
+		firstarg = i;
+	      } else {
+		print_memory(&c, ar.start, ar.end);
+	      }
+	    } else if (parse_address(arg, &a)) {
+	      if (arg[strlen(arg)-1] == ':') {
+		editing = 2;
+	      } else {
+		print_memory(&c, a, a);
+	      }
+	    } else {
+	      printf("Invalid value: %s\n", argv[1]);
+	    }
+	  } else {
+	    /* now we should only get bytes */
+	    if (parse_byte(arg, &b)) {
+	      c.write(a, b);
+	      a = a + 1;
+	      if (editing == 1) {
+		if (a > ar.end) {
+		  i = argc; /* skip the rest */
+		} else if (i == (argc - 1)) {
+		  /* we've reached the end of the input,
+		     but not the end of the addresses */
+		  i = firstarg;
+		}
+	      }
+	    }
+	  }
+	} /* for i = 1 to argc */
       }
     } else if (!strcmp("IMPORT", cmd)) {
       not_implemented();
