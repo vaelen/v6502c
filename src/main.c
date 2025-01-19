@@ -63,8 +63,16 @@ void print_register(char *name, byte value) {
   printf("%s : %02X\n", name, value);
 }
 
+void print_register_change(char *name, byte old, byte new) {
+  printf("%s : %02X -> %02X\n", name, old, new);
+}
+
 void print_pc(address value) {
   printf("PC : %04X\n", value);
+}
+
+void print_pc_change(address old, address new) {
+  printf("PC : %04X -> %04X\n", old, new);
 }
 
 void print_memory_header() {
@@ -184,10 +192,38 @@ void parseargs(char *cmdbuf, int *argc, char **argv) {
   *argc = count;
 }
 
+/** Parse a byte value in hexadecimal */
+int parsebyte(char *s) {
+  int n;
+  unsigned int v;
+  n = sscanf(s, "%2x", &v);
+  if (n <= 0) {
+    n = sscanf(s, "%2X", &v);
+    if (n <= 0) {
+      return -1;
+    }
+  }
+  return v;
+}
+
+/** Parse an address value in hexadecimal */
+int parseaddress(char *s) {
+  int n;
+  unsigned int v;
+  n = sscanf(s, "%4x", &v);
+  if (n <= 0) {
+    n = sscanf(s, "%4X", &v);
+    if (n <= 0) {
+      return -1;
+    }
+  }
+  return v;
+}
+
 int main() {
 
   cpu c;
-  int l = 0, done = 0, cmdlen = 0, argc = 0, i = 0;
+  int l = 0, done = 0, cmdlen = 0, argc = 0, i = 0, v = 0;
   char cmdbuf[256], *cmd, *argv[256];
   address a = 0;
   byte b = 0;
@@ -253,37 +289,79 @@ int main() {
       if (argc == 1) {
 	print_pc(c.pc);
       } else {
-	not_implemented();
+	v = parseaddress(argv[1]);
+	if (v < 0) {
+	  printf("Invalid value: %s\n", argv[1]);
+	} else {
+	  a = c.pc;
+	  c.pc = (address) v;
+	  print_pc_change(a, c.pc);
+	}
       }
     } else if (!strcmp("A", cmd)) {
       if (argc == 1) {
 	print_register("A", c.a);
       } else {
-	not_implemented();
+	v = parsebyte(argv[1]);
+	if (v < 0) {
+	  printf("Invalid value: %s\n", argv[1]);
+	} else {
+	  b = c.a;
+	  c.a = (byte) v;
+	  print_register_change("A", b, c.a);
+	}
       }
     } else if (!strcmp("X", cmd)) {
       if (argc == 1) {
 	print_register("X", c.x);
       } else {
-	not_implemented();
+	v = parsebyte(argv[1]);
+	if (v < 0) {
+	  printf("Invalid value: %s\n", argv[1]);
+	} else {
+	  b = c.x;
+	  c.x = (byte) v;
+	  print_register_change("X", b, c.x);
+	}
       }
     } else if (!strcmp("Y", cmd)) {
       if (argc == 1) {
 	print_register("Y", c.y);
       } else {
-	not_implemented();
+	v = parsebyte(argv[1]);
+	if (v < 0) {
+	  printf("Invalid value: %s\n", argv[1]);
+	} else {
+	  b = c.y;
+	  c.y = (byte) v;
+	  print_register_change("Y", b, c.y);
+	}
       }
     } else if (!strcmp("SR", cmd)) {
       if (argc == 1) {
 	print_register("SR", c.sr);
       } else {
-	not_implemented();
+	v = parsebyte(argv[1]);
+	if (v < 0) {
+	  printf("Invalid value: %s\n", argv[1]);
+	} else {
+	  b = c.sr;
+	  c.sr = (byte) v;
+	  print_register_change("SR", b, c.sr);
+	}
       }
     } else if (!strcmp("SP", cmd)) {
       if (argc == 1) {
 	print_register("SP", c.sp);
       } else {
-	not_implemented();
+	v = parsebyte(argv[1]);
+	if (v < 0) {
+	  printf("Invalid value: %s\n", argv[1]);
+	} else {
+	  b = c.sp;
+	  c.sp = (byte) v;
+	  print_register_change("SP", b, c.sp);
+	}
       }
     } else if (!strcmp("M", cmd)) {
       if (argc == 1) {
