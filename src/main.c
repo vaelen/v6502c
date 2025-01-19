@@ -134,12 +134,12 @@ void print_help() {
   puts("  SR [FF]   - print or set the status register");
   puts("  SP [FF]   - print or set the stack pointer");
   puts("");
-  puts("Memory Access:");
-  puts("  M                 - print values of addresses 0000 to 00FF");
-  puts("  M FFFF            - print value at address FFFF");
-  puts("  M FF00.FFFF       - print values of addresses FF00 to FFFF");
-  puts("  M FFFF: FF [FE..] - set values starting at address FFFF");
-  puts("  M FF00.FFFF: FF   - set addresses FF00 to FFFF to the value FF");
+  puts("Memory Access (Wozmon Compatible)");
+  puts("  FFFF            - print value at address FFFF");
+  puts("  FF00.FFFF       - print values of addresses FF00 to FFFF");
+  puts("  FFFF: FF [FE..] - set values starting at address FFFF");
+  puts("  FF00.FFFF: FF   - set addresses FF00 to FFFF to the value FF");
+  puts("  :FF [FE..]      - set the value FF starting at last used address");
   puts("");
   puts("Data Import / Export:");
   puts("  IMPORT SREC - Import Motorola S-Record formatted data.");
@@ -379,59 +379,58 @@ int main() {
 	  print_register_change("SP", b, c.sp);
 	}
       }
-    } else if (!strcmp("M", cmd)) {
-      if (argc == 1) {
-	print_memory(&c, 0x0000, 0x00FF);
-      } else {
-	editing = 0;
-	a = 0;
-	ar.start = 0;
-	ar.end = 0;
-	for (i = 1; i < argc; i++) {
-	  arg = argv[i];
-	  if (!editing) {
-	    if (parse_address_range(arg, &ar)) {
-	      if (arg[strlen(arg)-1] == ':') {
-		editing = 1;
-		a = ar.start;
-		firstarg = i;
-	      } else {
-		print_memory(&c, ar.start, ar.end);
-	      }
-	    } else if (parse_address(arg, &a)) {
-	      if (arg[strlen(arg)-1] == ':') {
-		editing = 2;
-	      } else {
-		print_memory(&c, a, a);
-	      }
-	    } else {
-	      printf("Invalid value: %s\n", argv[1]);
-	    }
-	  } else {
-	    /* now we should only get bytes */
-	    if (parse_byte(arg, &b)) {
-	      c.write(a, b);
-	      a = a + 1;
-	      if (editing == 1) {
-		if (a > ar.end) {
-		  i = argc; /* skip the rest */
-		} else if (i == (argc - 1)) {
-		  /* we've reached the end of the input,
-		     but not the end of the addresses */
-		  i = firstarg;
-		}
-	      }
-	    }
-	  }
-	} /* for i = 1 to argc */
-      }
     } else if (!strcmp("IMPORT", cmd)) {
       not_implemented();
     } else if (!strcmp("EXPORT", cmd)) {
       not_implemented();
     } else {
-      printf("Invalid command: %s\n", cmd);
-    }
+      editing = 0;
+      for (i = 0; i < argc; i++) {
+	arg = argv[i];
+	if (!editing) {
+	  if (arg[0] == ':') {
+	    /* Write from last address */
+	    editing = 2;
+	    argv[i] = argv[i] + 1;
+	    i = i - 1;
+	  } else if (parse_address_range(arg, &ar)) {
+	    a = ar.start;
+	    if (arg[strlen(arg)-1] == ':') {
+	      editing = 1;
+	      firstarg = i;
+	    } else {
+	      print_memory(&c, ar.start, ar.end);
+	    }
+	  } else if (parse_address(arg, &a)) {
+	    if (arg[strlen(arg)-1] == ':') {
+	      editing = 2;
+	    } else {
+	      print_memory(&c, a, a);
+	    }
+	  } else if (i == 0) {
+	    printf("Invalid command: %s\n", arg);
+	    i = argc; /* skip the rest */
+	  } else {
+	    printf("Invalid value: %s\n", arg);
+	  }
+	} else {
+	  /* now we should only get bytes */
+	  if (parse_byte(arg, &b)) {
+	    c.write(a, b);
+	    a = a + 1;
+	    if (editing == 1) {
+	      if (a > ar.end) {
+		i = argc; /* skip the rest */
+	      } else if (i == (argc - 1)) {
+		/* we've reached the end of the input,
+		   but not the end of the addresses */
+		i = firstarg;
+	      }
+	    }
+	  }
+	}
+      } /* for i = 1 to argc */
+    } /* command list */
     
   }
   
