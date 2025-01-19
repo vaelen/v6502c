@@ -119,11 +119,11 @@ void print_memory(cpu *c, address start, address end) {
 
 void print_help() {
   puts("Commands:");
-  puts("  H | HELP  - show this help screen");
-  puts("  R | RESET - reset CPU");
-  puts("  S | STEP  - step");
-  puts("  G | GO    - go");
-  puts("  Q | QUIT  - quit");
+  puts("  H | HELP        - show this help screen");
+  puts("  R | RESET       - reset CPU");
+  puts("  S | STEP        - step");
+  puts("  G | GO [10F0]   - start execution [at address 10F0 if provided]");
+  puts("  Q | QUIT        - quit");
   puts("");
   puts("Working with Registers:");
   puts("  ?         - print all register values");
@@ -139,7 +139,9 @@ void print_help() {
   puts("  FF00.FFFF       - print values of addresses FF00 to FFFF");
   puts("  FFFF: FF [FE..] - set values starting at address FFFF");
   puts("  FF00.FFFF: FF   - set addresses FF00 to FFFF to the value FF");
+  puts("  .FFFF           - print values from last used addresses to FFFF");
   puts("  :FF [FE..]      - set the value FF starting at last used address");
+  puts("  10F0 R          - start execution at address 10F0 (alias for GO)");
   puts("");
   puts("Data Import / Export:");
   puts("  IMPORT SREC - Import Motorola S-Record formatted data.");
@@ -247,14 +249,200 @@ int parse_address_range(char *s, address_range *r) {
   return 1;
 }
 
-int main() {
-
-  cpu c;
-  int l = 0, done = 0, cmdlen = 0, argc = 0, i = 0, editing = 0, firstarg = 0;
-  char cmdbuf[256], *cmd, *argv[256], *arg;
-  address a = 0;
+int parse_command(cpu *c, char *cmdbuf) {
+  int cmdlen = 0, argc = 0, i = 0, editing = 0, firstarg = 0;
+  char *cmd, *argv[256], *arg;
+  static address a = 0;
+  address current = 0;
   byte b = 0;
   address_range ar;
+  
+  parseargs(cmdbuf, &argc, argv);
+
+  cmd = argv[0];
+  if (cmd == 0) {
+    cmd = "";
+  }  
+
+  cmdlen = strlen(cmd);
+    
+  if (cmdlen == 0) {
+    /** Empty command, do nothing. */
+  } else if (!strcmp("H", cmd) || !strcmp("HELP", cmd)) {
+    print_help();
+  } else if (!strcmp("Q", cmd) || !strcmp("QUIT", cmd)) {
+    return 1;
+  } else if (!strcmp("R", cmd) || !strcmp("RESET", cmd)) {
+    cpu_reset(c);
+  } else if (!strcmp("S", cmd) || !strcmp("STEP", cmd)) {
+    cpu_step(c);
+  } else if (!strcmp("G", cmd) || !strcmp("GO", cmd)) {
+    if (argc > 1) {
+      current = c->pc;
+      if (parse_address(argv[1], &c->pc)) {
+	print_pc_change(current, c->pc);
+	cpu_run(c);
+      } else {
+	printf("Invalid address: %s\n", argv[1]);
+      }
+    } else {
+      cpu_run(c);
+    }
+  } else if (!strcmp("?", cmd)) {
+    print_pc(c->pc);
+    print_register(" A", c->a);
+    print_register(" X", c->x);
+    print_register(" Y", c->y);
+    print_register("SR", c->sr);
+    print_register("SP", c->sp);
+  } else if (!strcmp("PC", cmd)) {
+    if (argc == 1) {
+      print_pc(c->pc);
+    } else {
+      current = c->pc;
+      if (!parse_address(argv[1], &c->pc)) {
+	printf("Invalid address: %s\n", argv[1]);
+      } else {
+	print_pc_change(current, c->pc);
+      }
+    }
+  } else if (!strcmp("A", cmd)) {
+    if (argc == 1) {
+      print_register("A", c->a);
+    } else {
+      b = c->a;
+      if (!parse_byte(argv[1], &c->a)) {
+	printf("Invalid value: %s\n", argv[1]);
+      } else {
+	print_register_change("A", b, c->a);
+      }
+    }
+  } else if (!strcmp("X", cmd)) {
+    if (argc == 1) {
+      print_register("X", c->x);
+    } else {
+      b = c->x;
+      if (!parse_byte(argv[1], &c->x)) {
+	printf("Invalid value: %s\n", argv[1]);
+      } else {
+	print_register_change("X", b, c->x);
+      }
+    }
+  } else if (!strcmp("Y", cmd)) {
+    if (argc == 1) {
+      print_register("Y", c->y);
+    } else {
+      b = c->y;
+      if (!parse_byte(argv[1], &c->y)) {
+	printf("Invalid value: %s\n", argv[1]);
+      } else {
+	print_register_change("Y", b, c->y);
+      }
+    }
+  } else if (!strcmp("SR", cmd)) {
+    if (argc == 1) {
+      print_register("SR", c->sr);
+    } else {
+      b = c->sr;
+      if (!parse_byte(argv[1], &c->sr)) {
+	printf("Invalid value: %s\n", argv[1]);
+      } else {
+	print_register_change("SR", b, c->sr);
+      }
+    }
+  } else if (!strcmp("SP", cmd)) {
+    if (argc == 1) {
+      print_register("SP", c->sp);
+    } else {
+      b = c->sp;
+      if (!parse_byte(argv[1], &c->sp)) {
+	printf("Invalid value: %s\n", argv[1]);
+      } else {
+	print_register_change("SP", b, c->sp);
+      }
+    }
+  } else if (!strcmp("IMPORT", cmd)) {
+    not_implemented();
+  } else if (!strcmp("EXPORT", cmd)) {
+    not_implemented();
+  } else {
+    editing = 0;
+    for (i = 0; i < argc; i++) {
+      arg = argv[i];
+      if (!editing) {
+	if (arg[0] == ':') {
+	  /* Write from last address */
+	  editing = 2;
+	  current = a;
+	  argv[i] = argv[i] + 1;
+	  i = i - 1;
+	} else if (arg[0] == '.' || parse_address_range(arg, &ar)) {
+	  if (arg[0] == '.') {
+	    /* range starting at last address */
+	    ar.start = a;
+	    arg = arg + 1;
+	    if (!parse_address(arg, &ar.end)) {
+	      arg = arg - 1;
+	      printf("Invalid value: %s\n", arg);
+	      i = argc;
+	      break;
+	    }
+	  }
+	  a = ar.start;
+	  if (arg[strlen(arg)-1] == ':') {
+	    editing = 1;
+	    current = a;
+	    firstarg = i;
+	  } else {
+	    print_memory(c, ar.start, ar.end);
+	  }
+	} else if (parse_address(arg, &a)) {
+	  if (arg[strlen(arg)-1] == ':') {
+	    editing = 2;
+	    current = a;
+	  } else if (i < argc && argv[i+1][0] == 'R') {
+	    /* wozmon alias for 'go' command,
+	       supported for backwards compatibility. */
+	    i = argc;
+	    current = c->pc;
+	    c->pc = a;
+	    print_pc_change(current, c->pc);
+	    cpu_run(c);
+	  } else {
+	    print_memory(c, a, a);
+	  }
+	} else if (i == 0) {
+	  printf("Invalid command: %s\n", arg);
+	  i = argc; /* skip the rest */
+	} else {
+	  printf("Invalid value: %s\n", arg);
+	}
+      } else {
+	/* now we should only get bytes */
+	if (parse_byte(arg, &b)) {
+	  c->write(current, b);
+	  current = current + 1;
+	  if (editing == 1) {
+	    if (current > ar.end) {
+	      i = argc; /* skip the rest */
+	    } else if (i == (argc - 1)) {
+	      /* we've reached the end of the input,
+		 but not the end of the addresses */
+	      i = firstarg;
+	    }
+	  }
+	}
+      }
+    } /* for i = 1 to argc */
+  } /* command list */
+  
+  return 0;
+}
+
+int main(int argc, char** argv) {
+  cpu c;
+  int l = 0, done = 0;
+  char cmdbuf[256];
 
   c.read = read;
   c.write = write;
@@ -276,163 +464,14 @@ int main() {
       cmdbuf[l] = 0;
     }
 
-    parseargs(cmdbuf, &argc, argv);
-
-    cmd = argv[0];
-    if (cmd == 0) {
-      cmd = "";
-    }
-
-    /*
-    printf("Command: %s\n", cmd);
-    for (i = 0; i < argc; i++) {
-      printf("  Param %d: '%s'\n", i, argv[i]);
-    }
-    */
-    
-    cmdlen = strlen(cmd);
-    
     if (l == EOF) {
       done = 1;
-    } else if (cmdlen == 0) {
-      /** Empty command, do nothing. */
-    } else if (!strcmp("H", cmd) || !strcmp("HELP", cmd)) {
-      print_help();
-    } else if (!strcmp("Q", cmd) || !strcmp("QUIT", cmd)) {
-      done = 1;
-    } else if (!strcmp("R", cmd) || !strcmp("RESET", cmd)) {
-      cpu_reset(&c);
-    } else if (!strcmp("S", cmd) || !strcmp("STEP", cmd)) {
-      cpu_step(&c);
-    } else if (!strcmp("G", cmd) || !strcmp("GO", cmd)) {
-      cpu_run(&c);
-    } else if (!strcmp("?", cmd)) {
-      print_pc(c.pc);
-      print_register(" A", c.a);
-      print_register(" X", c.x);
-      print_register(" Y", c.y);
-      print_register("SR", c.sr);
-      print_register("SP", c.sp);
-    } else if (!strcmp("PC", cmd)) {
-      if (argc == 1) {
-	print_pc(c.pc);
-      } else {
-	a = c.pc;
-	if (!parse_address(argv[1], &c.pc)) {
-	  printf("Invalid value: %s\n", argv[1]);
-	} else {
-	  print_pc_change(a, c.pc);
-	}
-      }
-    } else if (!strcmp("A", cmd)) {
-      if (argc == 1) {
-	print_register("A", c.a);
-      } else {
-	b = c.a;
-	if (!parse_byte(argv[1], &c.a)) {
-	  printf("Invalid value: %s\n", argv[1]);
-	} else {
-	  print_register_change("A", b, c.a);
-	}
-      }
-    } else if (!strcmp("X", cmd)) {
-      if (argc == 1) {
-	print_register("X", c.x);
-      } else {
-	b = c.x;
-	if (!parse_byte(argv[1], &c.x)) {
-	  printf("Invalid value: %s\n", argv[1]);
-	} else {
-	  print_register_change("X", b, c.x);
-	}
-      }
-    } else if (!strcmp("Y", cmd)) {
-      if (argc == 1) {
-	print_register("Y", c.y);
-      } else {
-	b = c.y;
-	if (!parse_byte(argv[1], &c.y)) {
-	  printf("Invalid value: %s\n", argv[1]);
-	} else {
-	  print_register_change("Y", b, c.y);
-	}
-      }
-    } else if (!strcmp("SR", cmd)) {
-      if (argc == 1) {
-	print_register("SR", c.sr);
-      } else {
-	b = c.sr;
-	if (!parse_byte(argv[1], &c.sr)) {
-	  printf("Invalid value: %s\n", argv[1]);
-	} else {
-	  print_register_change("SR", b, c.sr);
-	}
-      }
-    } else if (!strcmp("SP", cmd)) {
-      if (argc == 1) {
-	print_register("SP", c.sp);
-      } else {
-	b = c.sp;
-	if (!parse_byte(argv[1], &c.sp)) {
-	  printf("Invalid value: %s\n", argv[1]);
-	} else {
-	  print_register_change("SP", b, c.sp);
-	}
-      }
-    } else if (!strcmp("IMPORT", cmd)) {
-      not_implemented();
-    } else if (!strcmp("EXPORT", cmd)) {
-      not_implemented();
     } else {
-      editing = 0;
-      for (i = 0; i < argc; i++) {
-	arg = argv[i];
-	if (!editing) {
-	  if (arg[0] == ':') {
-	    /* Write from last address */
-	    editing = 2;
-	    argv[i] = argv[i] + 1;
-	    i = i - 1;
-	  } else if (parse_address_range(arg, &ar)) {
-	    a = ar.start;
-	    if (arg[strlen(arg)-1] == ':') {
-	      editing = 1;
-	      firstarg = i;
-	    } else {
-	      print_memory(&c, ar.start, ar.end);
-	    }
-	  } else if (parse_address(arg, &a)) {
-	    if (arg[strlen(arg)-1] == ':') {
-	      editing = 2;
-	    } else {
-	      print_memory(&c, a, a);
-	    }
-	  } else if (i == 0) {
-	    printf("Invalid command: %s\n", arg);
-	    i = argc; /* skip the rest */
-	  } else {
-	    printf("Invalid value: %s\n", arg);
-	  }
-	} else {
-	  /* now we should only get bytes */
-	  if (parse_byte(arg, &b)) {
-	    c.write(a, b);
-	    a = a + 1;
-	    if (editing == 1) {
-	      if (a > ar.end) {
-		i = argc; /* skip the rest */
-	      } else if (i == (argc - 1)) {
-		/* we've reached the end of the input,
-		   but not the end of the addresses */
-		i = firstarg;
-	      }
-	    }
-	  }
-	}
-      } /* for i = 1 to argc */
-    } /* command list */
-    
+      if (parse_command(&c, cmdbuf)) {
+	done = 1;
+      }
+    }
   }
-  
+
   return 0;
 }

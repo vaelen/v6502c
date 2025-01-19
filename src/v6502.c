@@ -41,9 +41,10 @@ void cpu_reset(cpu *c) {
 }
 
 void cpu_step(cpu *c) {
-    if (c == 0) return;
+  if (c == 0) return;
 }
 
 void cpu_run(cpu *c) {
-  
+  if (c == 0) return;
+ 
 }
