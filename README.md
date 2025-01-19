@@ -5,9 +5,56 @@ v6502c
 
 v6502c implements an emulated 6502 CPU in ANSI C.
 
-It began as a port of my v6502 project, which is similar but is
-written in Rust. The reason I wrote this new version in ANSI C was so
-that I could use it as a component in retro computing projects for
+## Building and Running
+```
+$ make
+$ ./v6502c
+```
+
+## Commands
+
+```
+v6502c v1.0
+Copyright (c) 2025, Andrew C. Young <andrew@vaelen.org>
+
+Type 'help' for help.
+
+=> help
+Commands:
+  H | HELP        - show this help screen
+  R | RESET       - reset CPU
+  S | STEP        - step
+  G | GO [10F0]   - start execution [at address 10F0 if provided]
+  Q | QUIT        - quit
+
+Working with Registers:
+  ?         - print all register values
+  PC [FFFF] - print or set the program counter
+  A [FF]    - print or set the accumulator
+  X [FF]    - print or set the X index register
+  Y [FF]    - print or set the Y index register
+  SR [FF]   - print or set the status register
+  SP [FF]   - print or set the stack pointer
+
+Memory Access (Wozmon Compatible)
+  FFFF            - print value at address FFFF
+  FF00.FFFF       - print values of addresses FF00 to FFFF
+  FFFF: FF [FE..] - set values starting at address FFFF
+  FF00.FFFF: FF   - set addresses FF00 to FFFF to the value FF
+  .FFFF           - print values from last used addresses to FFFF
+  :FF [FE..]      - set the value FF starting at last used address
+  10F0 R          - start execution at address 10F0 (alias for GO)
+
+Data Import / Export:
+  LOAD <FILENAME>           - Load Wozmon formatted data.
+  SAVE 1000.10F0 <FILENAME> - Save data in Wozmon format.
+```
+
+## Details
+
+This project began as a port of my v6502 project, which is similar but
+is written in Rust. The reason I wrote this new version in ANSI C was
+so that I could use it as a component in retro computing projects for
 systems such as the classic Macintosh. It is meant to be as portable
 as possible and to rely on the C standard library as little as
 possible so that it can be ported to as wide a variety of systems as
