@@ -89,7 +89,7 @@ void print_memory_location(address a) {
 }
 
 void print_memory(cpu *c, address start, address end) {
-  address current = start;
+  address current = start & 0xFFF0;
   int column = 0, row = 0;
   byte b = 0;
 
@@ -105,8 +105,12 @@ void print_memory(cpu *c, address start, address end) {
       row = (row + 1) % 23;
       print_memory_location(current);
     }
-    printf("%02X ", c->read(current));
-
+    if (current >= start) {
+      printf("%02X ", c->read(current));
+    } else {
+      printf("   ");
+    }
+  
     current = current + 1;
     column = (column + 1) % 16;
   }
