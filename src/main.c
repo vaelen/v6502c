@@ -135,11 +135,11 @@ void print_help() {
   puts("  SP [FF]   - print or set the stack pointer");
   puts("");
   puts("Memory Access:");
-  puts("  M                - print values of addresses 0000 to 00FF");
-  puts("  M FFFF           - print value at address FFFF");
-  puts("  M FF00.FFFF      - print values of addresses FF00 to FFFF");
-  puts("  M FFFF: FF[FE..] - set values starting at address FFFF");
-  puts("  M FF00.FFFF: FF  - set addresses FF00 to FFFF to the value FF");
+  puts("  M                 - print values of addresses 0000 to 00FF");
+  puts("  M FFFF            - print value at address FFFF");
+  puts("  M FF00.FFFF       - print values of addresses FF00 to FFFF");
+  puts("  M FFFF: FF [FE..] - set values starting at address FFFF");
+  puts("  M FF00.FFFF: FF   - set addresses FF00 to FFFF to the value FF");
   puts("");
   puts("Data Import / Export:");
   puts("  IMPORT SREC - Import Motorola S-Record formatted data.");
