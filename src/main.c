@@ -23,15 +23,7 @@
  *
  */
 
-#include <stdio.h>
-#include <string.h>
-
-#include <v6502.h>
-
-typedef struct addrr {
-  address start;
-  address end;
-} address_range;
+#include "main.h"
 
 byte mem[0xFFFF];
 
@@ -43,17 +35,15 @@ void write(address a, byte b) {
   mem[a] = b;
 }
 
-int read_line(char *buf, int maxlen) {
+int read_line(FILE *in, char *buf, int maxlen) {
   int c, count = 0;
 
-  c = getchar();
-  while (c != EOF && c != '\n' && count < maxlen) {
-    if (c != '\r') {
-      buf[count] = toupper((unsigned char) c);
-      count = count + 1;
-    }
+  c = fgetc(in);
+  while (c != EOF && c != '\n' && c != '\r' && count < maxlen) {
+    buf[count] = (char) c;
+    count = count + 1;
     if (count < maxlen) {
-      c = getchar();
+      c = fgetc(in);
     }
   }
 
@@ -144,8 +134,8 @@ void print_help() {
   puts("  10F0 R          - start execution at address 10F0 (alias for GO)");
   puts("");
   puts("Data Import / Export:");
-  puts("  IMPORT SREC - Import Motorola S-Record formatted data.");
-  puts("  EXPORT SREC - Export Motorola S-Record formatted data.");
+  puts("  LOAD <FILENAME>           - Load Wozmon formatted data.");
+  puts("  SAVE 1000.10F0 <FILENAME> - Save data in Wozmon format.");
 }
 
 void not_implemented() {
@@ -249,9 +239,83 @@ int parse_address_range(char *s, address_range *r) {
   return 1;
 }
 
+void read_lines(cpu *c, FILE *in) {
+  int l = 0, done = 0, i = 0;
+  char cmdbuf[256];
+
+  while (!done) {
+    if (in == stdin) {
+      printf("=> ");
+    }
+
+    l = read_line(in, cmdbuf, 255);
+    if (l >= 0) {
+      cmdbuf[l] = 0;
+    }
+
+    if (l == EOF) {
+      done = 1;
+    } else {
+      if (parse_command(c, cmdbuf)) {
+	done = 1;
+      }
+    }
+  }
+  
+}
+
+int write_file(cpu *c, address_range ar, char *filename) {
+  FILE *file;
+  address a;
+  int i;
+  
+  printf("Writing %04X.%04X to %s\n", ar.start, ar.end, filename);
+
+  file = fopen(filename, "w");
+  if (file == 0) {
+    printf("Could not open file: %s\n", filename);
+    return 0;
+  } 
+
+  i = 0;
+  a = ar.start;
+  fprintf(file, "%04X:", a);
+  while (a <= ar.end) {
+    fprintf(file, " %02X", c->read(a));
+    a = a + 1;
+    i = i + 1;
+    if (a <= ar.end && (i % 8) == 0) {
+      fprintf(file, "\n%04X:", a);
+    }
+  }
+
+  fprintf(file, "\n");
+  
+  fflush(file);
+  fclose(file);
+
+  return i;
+}
+
+int read_file(cpu *c, char *filename) {
+  FILE *file;
+
+  printf("Loading %s\n", filename);
+
+  file = fopen(filename, "r");
+  if (file == 0) {
+    printf("Could not open file: %s\n", filename);
+    return 0;
+  }
+
+  read_lines(c, file);
+
+  fclose(file);
+}
+
 int parse_command(cpu *c, char *cmdbuf) {
   int cmdlen = 0, argc = 0, i = 0, editing = 0, firstarg = 0;
-  char *cmd, *argv[256], *arg;
+  char *cmd, *argv[256], *arg, *filename;
   static address a = 0;
   address current = 0;
   byte b = 0;
@@ -265,6 +329,10 @@ int parse_command(cpu *c, char *cmdbuf) {
   }  
 
   cmdlen = strlen(cmd);
+
+  for (i = 0; i < cmdlen; i++) {
+    cmd[i] = toupper((unsigned char) cmd[i]);
+  }
     
   if (cmdlen == 0) {
     /** Empty command, do nothing. */
@@ -361,10 +429,26 @@ int parse_command(cpu *c, char *cmdbuf) {
 	print_register_change("SP", b, c->sp);
       }
     }
-  } else if (!strcmp("IMPORT", cmd)) {
-    not_implemented();
-  } else if (!strcmp("EXPORT", cmd)) {
-    not_implemented();
+  } else if (!strcmp("LOAD", cmd)) {
+    if (argc == 1) {
+      puts("Please provide a filename.");
+    } else {
+      filename = argv[1];
+      read_file(c, filename);
+    }
+  } else if (!strcmp("SAVE", cmd)) {
+    if (argc == 1) {
+      puts("Please provide an address range and a filename.");
+    } else if (argc == 2) {
+      puts("Please provide a filename.");
+    } else {
+      if (!parse_address_range(argv[1], &ar)) {
+	printf("Invalid address range: %s\n", argv[1]);
+      } else {
+	filename = argv[2];
+	write_file(c, ar, filename);
+      }
+    }
   } else {
     editing = 0;
     for (i = 0; i < argc; i++) {
@@ -400,7 +484,9 @@ int parse_command(cpu *c, char *cmdbuf) {
 	  if (arg[strlen(arg)-1] == ':') {
 	    editing = 2;
 	    current = a;
-	  } else if (i < argc && argv[i+1][0] == 'R') {
+	  } else if (i < argc &&
+		     argv[i+1][0] == 'R' ||
+		     argv[i+1][0] == 'r') {
 	    /* wozmon alias for 'go' command,
 	       supported for backwards compatibility. */
 	    i = argc;
@@ -441,8 +527,6 @@ int parse_command(cpu *c, char *cmdbuf) {
 
 int main(int argc, char** argv) {
   cpu c;
-  int l = 0, done = 0;
-  char cmdbuf[256];
 
   c.read = read;
   c.write = write;
@@ -455,23 +539,8 @@ int main(int argc, char** argv) {
 
   puts("Type 'help' for help.");
   puts("");
-  
-  while (!done) {
-    printf("=> ");
 
-    l = read_line(cmdbuf, 255);
-    if (l >= 0) {
-      cmdbuf[l] = 0;
-    }
-
-    if (l == EOF) {
-      done = 1;
-    } else {
-      if (parse_command(&c, cmdbuf)) {
-	done = 1;
-      }
-    }
-  }
+  read_lines(&c, stdin);
 
   return 0;
 }
