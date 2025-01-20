@@ -104,12 +104,17 @@ void print_memory(cpu *c, address start, address end) {
       row = (row + 1) % 23;
       print_memory_location(current);
     }
+    
     if (current >= start) {
       printf("%02X ", c->read(current));
     } else {
       printf("   ");
     }
-  
+
+    if (current == 0xFFFF) {
+      break;
+    }
+    
     current++;
     column = (column + 1) % 16;
   }
