@@ -131,6 +131,9 @@ void cpu_step(cpu *c) {
   }
   
   switch (instruction) {
+  case I_BRK:
+    cpu_halt(c);
+    break;
   case I_NOP:
   default:
     /* Do nothing */
