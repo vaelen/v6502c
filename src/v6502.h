@@ -85,10 +85,10 @@ typedef struct cpu_s {
 /** Call this to initialize the CPU data structure before using it. */
 void cpu_init(cpu *c);
 
-/** Read a byte from the given address and update SR. */
+/** Read a byte from the given address. */
 byte cpu_read_byte(cpu *c, address a);
 
-/** Read a two byte address starting at the given address and update SR. */
+/** Read a two byte address starting at the given address. */
 address cpu_read_address(cpu *c, address a);
 
 /** Write a byte to the given address and update SR. */

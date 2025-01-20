@@ -296,6 +296,9 @@ void cpu_step(cpu *c) {
     /* add with carry */
     temp = c->a;
     c->a += b;
+    if (_check_bit(c, CARRY_FLAG)) {
+      c->a++;
+    }
     if (c->a < temp) {
       _set_bit(c, CARRY_FLAG);
       _set_bit(c, OVERFLOW_FLAG);
@@ -597,7 +600,25 @@ void cpu_step(cpu *c) {
     break;
   case I_RTI:
     /* return from interrupt */
-    /** TODO */
+    
+    /* pull SR minus bit 5 and break flag */
+    b = c->sr;
+    c->sr = _pop(c);
+    if (b & (1<<BREAK_FLAG)) {
+      _set_bit(c, BREAK_FLAG);
+    } else {
+      _clear_bit(c, BREAK_FLAG);
+    }
+    if (b & (1<<5)) {
+      _set_bit(c, 5);
+    } else {
+      _clear_bit(c, 5);
+    }
+
+    /* pull pc */
+    hi = _pop(c);
+    lo = _pop(c);
+    c->pc = (hi << 8) | lo;
     break;
   case I_RTS:
     /* return from subroutine */
