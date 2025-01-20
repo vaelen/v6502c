@@ -5,13 +5,22 @@ v6502c
 
 v6502c implements an emulated 6502 CPU in ANSI C.
 
-## Building and Running
+## Hello World
+The file `hello.c` includes a minimal example of embedding the emulator in another program.
+You can build and run it using the following commands:
 ```
-$ make
-$ ./v6502c
+$ make hello
+$ ./bin/hello
 ```
 
-## Commands
+## Building and Running the Emulator
+```
+$ make
+$ ./bin/v6502c
+```
+
+
+## Emulator Commands
 
 ```
 v6502c v1.0
