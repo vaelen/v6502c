@@ -1,9 +1,14 @@
 v6502c
 ======
 
-# Note: This is a work in progress! It is not yet ready to use.
-
 v6502c implements an emulated 6502 CPU in ANSI C.
+
+## Note: This is a work in progress!
+The emulator should mostly work, but it has not been throughly tested.
+
+Left to implement:
+1. Interrupts
+2. Binary Coded Decimal (BCD)
 
 ## Hello World
 The file `hello.c` includes a minimal example of embedding the emulator in another program.
