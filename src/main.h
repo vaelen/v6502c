@@ -1,3 +1,6 @@
+#ifndef _MAIN_H_
+#define _MAIN_H_
+
 /**
  * Copyright (c) 2025 Andrew C. Young
  *
@@ -54,3 +57,5 @@ void read_lines(cpu *c, FILE *in);
 int write_file(cpu *c, address_range ar, char *filename);
 int read_file(cpu *c, char *filename);
 int parse_command(cpu *c, char *cmdbuf);
+
+#endif

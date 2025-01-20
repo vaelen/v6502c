@@ -65,6 +65,18 @@ typedef struct cpu_s {
   WriteFn *write;
 } cpu;
 
+/** Read a byte from the given address and update SR. */
+byte cpu_read_byte(cpu *c, address a);
+
+/** Read a two byte address starting at the given address and update SR. */
+address cpu_read_address(cpu *c, address a);
+
+/** Read the next byte from memory and increment the program counter. */
+byte cpu_next_byte(cpu *c);
+
+/** Read the next address from memory and increment the program counter. */
+address cpu_next_address(cpu *c);
+
 /** Reset the CPU. */
 void cpu_reset(cpu *c);
 
@@ -73,9 +85,5 @@ void cpu_step(cpu *c);
 
 /** Run the CPU until it halts. */
 void cpu_run(cpu *c);
-
-/** Read a two byte address starting at the given address. */
-address cpu_read_address(cpu *c, address a);
-
 
 #endif

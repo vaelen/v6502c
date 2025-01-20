@@ -24,15 +24,40 @@
  */
 
 #include "v6502.h"
+#include "inst.h"
+
+byte cpu_read_byte(cpu *c, address a) {
+  byte b = 0;
+  if (c == 0) return 0;
+  b = c->read(a);
+  /** TODO: Update status register. */
+  return b;
+}
 
 address cpu_read_address(cpu *c, address a) {
+  byte hi = 0, lo = 0;
   if (c == 0) return 0;
+  lo = cpu_read_byte(c, a++);
+  hi = cpu_read_byte(c, a++);
+  return (address)((hi << 8) & lo);
+}
+
+byte cpu_next_byte(cpu *c) {
+  if (c == 0) return 0;
+  return cpu_read_byte(c, c->pc++);
+}
+
+address cpu_next_address(cpu *c) {
+  address a = 0;
+  if (c == 0) return 0;
+  a = cpu_read_address(c, c->pc);
+  c->pc += 2;
+  return a;
 }
 
 void cpu_reset(cpu *c) {
-  if (c == 0) return;
-  
-  c->pc = cpu_read_address(c, RESET_VECTOR);
+  if (c == 0) return; 
+  c->pc = RESET_VECTOR;
   c->a = 0;
   c->x = 0;
   c->y = 0;
@@ -41,10 +66,34 @@ void cpu_reset(cpu *c) {
 }
 
 void cpu_step(cpu *c) {
+  byte b = 0, lo = 0, hi = 0;
+  address a = 0;
+  enum instruction_t instruction = I_BRK;
+  enum addressing_t addressing = A_IMP;
+  
   if (c == 0) return;
+  
+  b = cpu_next_byte(c);
+
+  instruction = instructions[b];
+  addressing = addressings[b];
+
+  switch (addressing) {
+  case A_IMP:
+  default:
+    /* No address needed */
+    break;
+  }
+  
+  switch (instruction) {
+  case I_NOP:
+  default:
+    /* Do nothing */
+    break;
+  }
+
 }
 
 void cpu_run(cpu *c) {
-  if (c == 0) return;
- 
+  if (c == 0) return; 
 }
