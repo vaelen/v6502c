@@ -12,6 +12,8 @@ LOOP	LDA MSG,X
 	INX
 	JMP LOOP
 
-DONE	BRK
+DONE	LDA #$0A
+	STA $FF00
+	BRK
 	
-MSG	asciiz "Hello, world!\n"
+MSG	asciiz "Hello, world!"

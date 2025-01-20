@@ -16,14 +16,13 @@ bin/v6502c: bin obj obj/v6502.o src/main.c src/main.h
 obj/v6502.o: obj src/inst.h src/v6502.h src/v6502.c
 	${CC} ${CCOPTS} -c src/v6502.c -o obj/v6502.o
 
-bin/hello: bin obj obj/v6502.o src/hello.c
+bin/hello: bin obj obj/v6502.o src/hello.c src/hello.h
 	${CC} ${CCOPTS} obj/v6502.o src/hello.c -o bin/hello
 
-src/hello.bin: src/hello.s
+src/hello.h: src/hello.s
 	${VASM} -Fbin -o src/hello.bin src/hello.s
-
-src/hello.woz: src/hello.s
 	${VASM} -Fwoz -o src/hello.woz src/hello.s
+	xxd -i src/hello.bin > src/hello.h
 
 bin:
 	mkdir -p bin
