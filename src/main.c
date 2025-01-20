@@ -36,12 +36,12 @@ void write(address a, byte b) {
 }
 
 int read_line(FILE *in, char *buf, int maxlen) {
-  int c, count = 0;
+  int c = 0, count = 0;
 
   c = fgetc(in);
   while (c != EOF && c != '\n' && c != '\r' && count < maxlen) {
     buf[count] = (char) c;
-    count = count + 1;
+    count++;
     if (count < maxlen) {
       c = fgetc(in);
     }
@@ -101,7 +101,7 @@ void print_memory(cpu *c, address start, address end) {
       printf("   ");
     }
   
-    current = current + 1;
+    current++;
     column = (column + 1) % 16;
   }
   puts("");
@@ -158,9 +158,9 @@ int is_whitespace(char c) {
 /** Parameter parsing */
 void parseargs(char *cmdbuf, int *argc, char **argv) {
   int count = 0;
-  char *current, *end;
+  char *current = NULL, *end = NULL;
 
-  if (argv == 0 || argc == 0 || cmdbuf == 0) return;
+  if (argv == NULL || argc == NULL || cmdbuf == NULL) return;
 
   current = cmdbuf;
   end = cmdbuf + strlen(cmdbuf);
@@ -174,7 +174,7 @@ void parseargs(char *cmdbuf, int *argc, char **argv) {
       if (argv[count] != 0) {
 	/* Found the last non-whitepace character */
 	*current = 0;
-	count = count + 1;
+	count++;
 	argv[count] = 0;
       }
     } else {
@@ -183,11 +183,11 @@ void parseargs(char *cmdbuf, int *argc, char **argv) {
 	  argv[count] = current;
 	}
     }
-    current = current + 1;
+    current++;
   }
 
  if (argv[count] != 0) {
-   count = count + 1;
+   count++;
  }
   
   *argc = count;
@@ -240,7 +240,8 @@ int parse_address_range(char *s, address_range *r) {
 }
 
 void read_lines(cpu *c, FILE *in) {
-  int l = 0, done = 0, i = 0;
+  int l = 0, i = 0;
+  bool done = FALSE;
   char cmdbuf[256];
 
   while (!done) {
@@ -254,10 +255,10 @@ void read_lines(cpu *c, FILE *in) {
     }
 
     if (l == EOF) {
-      done = 1;
+      done = TRUE;
     } else {
       if (parse_command(c, cmdbuf)) {
-	done = 1;
+	done = TRUE;
       }
     }
   }
@@ -265,14 +266,14 @@ void read_lines(cpu *c, FILE *in) {
 }
 
 int write_file(cpu *c, address_range ar, char *filename) {
-  FILE *file;
-  address a;
-  int i;
+  FILE *file = NULL;
+  address a = 0;
+  int i = 0;
   
   printf("Writing %04X.%04X to %s\n", ar.start, ar.end, filename);
 
   file = fopen(filename, "w");
-  if (file == 0) {
+  if (file == NULL) {
     printf("Could not open file: %s\n", filename);
     return 0;
   } 
@@ -282,8 +283,8 @@ int write_file(cpu *c, address_range ar, char *filename) {
   fprintf(file, "%04X:", a);
   while (a <= ar.end) {
     fprintf(file, " %02X", c->read(a));
-    a = a + 1;
-    i = i + 1;
+    a++;
+    i++;
     if (a <= ar.end && (i % 8) == 0) {
       fprintf(file, "\n%04X:", a);
     }
@@ -298,12 +299,12 @@ int write_file(cpu *c, address_range ar, char *filename) {
 }
 
 int read_file(cpu *c, char *filename) {
-  FILE *file;
+  FILE *file = NULL;
 
   printf("Loading %s\n", filename);
 
   file = fopen(filename, "r");
-  if (file == 0) {
+  if (file == NULL) {
     printf("Could not open file: %s\n", filename);
     return 0;
   }
@@ -314,8 +315,9 @@ int read_file(cpu *c, char *filename) {
 }
 
 int parse_command(cpu *c, char *cmdbuf) {
-  int cmdlen = 0, argc = 0, i = 0, editing = 0, firstarg = 0;
-  char *cmd, *argv[256], *arg, *filename;
+  int cmdlen = 0, argc = 0, i = 0, firstarg = 0;
+  enum {NOT_EDITING, EDITING, EDITING_RANGE} editing = NOT_EDITING;
+  char *cmd = NULL, *argv[256], *arg = NULL, *filename = NULL;
   static address a = 0;
   address current = 0;
   byte b = 0;
@@ -324,7 +326,7 @@ int parse_command(cpu *c, char *cmdbuf) {
   parseargs(cmdbuf, &argc, argv);
 
   cmd = argv[0];
-  if (cmd == 0) {
+  if (cmd == NULL) {
     cmd = "";
   }  
 
@@ -450,23 +452,23 @@ int parse_command(cpu *c, char *cmdbuf) {
       }
     }
   } else {
-    editing = 0;
+    editing = NOT_EDITING;
     for (i = 0; i < argc; i++) {
       arg = argv[i];
-      if (!editing) {
+      if (editing == NOT_EDITING) {
 	if (arg[0] == ':') {
 	  /* Write from last address */
-	  editing = 2;
+	  editing = EDITING;
 	  current = a;
-	  argv[i] = argv[i] + 1;
-	  i = i - 1;
+	  argv[i]++;
+	  i--;
 	} else if (arg[0] == '.' || parse_address_range(arg, &ar)) {
 	  if (arg[0] == '.') {
 	    /* range starting at last address */
 	    ar.start = a;
-	    arg = arg + 1;
+	    arg++;
 	    if (!parse_address(arg, &ar.end)) {
-	      arg = arg - 1;
+	      arg--;
 	      printf("Invalid value: %s\n", arg);
 	      i = argc;
 	      break;
@@ -474,7 +476,7 @@ int parse_command(cpu *c, char *cmdbuf) {
 	  }
 	  a = ar.start;
 	  if (arg[strlen(arg)-1] == ':') {
-	    editing = 1;
+	    editing = EDITING_RANGE;
 	    current = a;
 	    firstarg = i;
 	  } else {
@@ -482,7 +484,7 @@ int parse_command(cpu *c, char *cmdbuf) {
 	  }
 	} else if (parse_address(arg, &a)) {
 	  if (arg[strlen(arg)-1] == ':') {
-	    editing = 2;
+	    editing = EDITING;
 	    current = a;
 	  } else if (i < argc &&
 		     argv[i+1][0] == 'R' ||
@@ -507,8 +509,8 @@ int parse_command(cpu *c, char *cmdbuf) {
 	/* now we should only get bytes */
 	if (parse_byte(arg, &b)) {
 	  c->write(current, b);
-	  current = current + 1;
-	  if (editing == 1) {
+	  current++;
+	  if (editing == EDITING_RANGE) {
 	    if (current > ar.end) {
 	      i = argc; /* skip the rest */
 	    } else if (i == (argc - 1)) {

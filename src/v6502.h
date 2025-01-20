@@ -40,6 +40,17 @@ typedef unsigned short int address;
  * respond to specific memory addresses differently, it is possible
  * to emulate hardware peripherals or memory banking.
  **/
+
+typedef char bool;
+
+#ifndef TRUE
+#define TRUE 1
+#endif
+
+#ifndef FALSE
+#define FALSE 0
+#endif
+
 typedef byte ReadFn(address);
 typedef void WriteFn(address, byte);
 
