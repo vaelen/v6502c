@@ -344,6 +344,7 @@ int parse_command(cpu *c, char *cmdbuf) {
     return 1;
   } else if (!strcmp("R", cmd) || !strcmp("RESET", cmd)) {
     cpu_reset(c);
+    cpu_step(c);
   } else if (!strcmp("S", cmd) || !strcmp("STEP", cmd)) {
     cpu_step(c);
   } else if (!strcmp("G", cmd) || !strcmp("GO", cmd)) {
@@ -530,10 +531,13 @@ int parse_command(cpu *c, char *cmdbuf) {
 int main(int argc, char** argv) {
   cpu c;
 
+  cpu_init(&c);
+  
   c.read = read;
   c.write = write;
 
   cpu_reset(&c);
+  cpu_step(&c);
 
   puts(V6502C_VERSION);
   puts(V6502C_COPYRIGHT);

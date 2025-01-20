@@ -30,6 +30,7 @@
 #define V6502C_COPYRIGHT "Copyright (c) 2025, Andrew C. Young <andrew@vaelen.org>"
 #define IRQ_VECTOR 0xFFFE
 #define RESET_VECTOR 0xFFFC
+#define NMI_VECTOR 0xFFFA
 
 typedef unsigned char byte;
 typedef unsigned short int address;
@@ -51,8 +52,19 @@ typedef char bool;
 #define FALSE 0
 #endif
 
+#ifndef NULL
+#define NULL 0
+#endif
+
+/** Read a byte from the given emulated memory address. */
 typedef byte ReadFn(address);
+
+/** Write a byte to the given emulated memory address. */
 typedef void WriteFn(address, byte);
+
+/** Called between each CPU cycle.
+    Can be used to slow down execution. */
+typedef void TickFn();
 
 typedef struct cpu_s {
   address pc;
@@ -61,9 +73,17 @@ typedef struct cpu_s {
   byte y;
   byte sr;
   byte sp;
+  bool halted;
+  bool reset;
+  bool irq;
+  bool nmi;
   ReadFn *read;
   WriteFn *write;
+  TickFn *tick;
 } cpu;
+
+/** Call this to initialize the CPU data structure before using it. */
+void cpu_init(cpu *c);
 
 /** Read a byte from the given address and update SR. */
 byte cpu_read_byte(cpu *c, address a);
@@ -71,19 +91,34 @@ byte cpu_read_byte(cpu *c, address a);
 /** Read a two byte address starting at the given address and update SR. */
 address cpu_read_address(cpu *c, address a);
 
+/** Write a byte to the given address and update SR. */
+void cpu_write_byte(cpu *c, address a, byte b);
+
+/** Write a two byte address starting at the given address and update SR. */
+void cpu_write_address(cpu *c, address a, address value);
+
 /** Read the next byte from memory and increment the program counter. */
 byte cpu_next_byte(cpu *c);
 
 /** Read the next address from memory and increment the program counter. */
 address cpu_next_address(cpu *c);
 
-/** Reset the CPU. */
-void cpu_reset(cpu *c);
-
 /** Step the CPU by one instruction. */
 void cpu_step(cpu *c);
 
 /** Run the CPU until it halts. */
 void cpu_run(cpu *c);
+
+/** Halt the CPU. */
+void cpu_halt(cpu *c);
+
+/** Reset the CPU. */
+void cpu_reset(cpu *c);
+
+/** Trigger a CPU interrupt request (IRQ). */
+void cpu_irq(cpu *c);
+
+/** Trigger a CPU non-maskable interrupt. */
+void cpu_nmi(cpu *c);
 
 #endif
