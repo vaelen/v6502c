@@ -28,10 +28,19 @@
 byte mem[0xFFFF];
 
 byte read(address a) {
+  if (a == 0xFF00) {
+    /** Character device */
+    return getchar();
+  }
   return mem[a];
 }
 
 void write(address a, byte b) {
+  if (a == 0xFF00) {
+    /** Character device */
+    putchar(b);
+    return;
+  }
   mem[a] = b;
 }
 
