@@ -13,7 +13,7 @@ obj/v6502.o: obj src/inst.h src/v6502.h src/v6502.c
 	${CC} ${CCOPTS} -c src/v6502.c -o obj/v6502.o
 
 hello: obj obj/v6502.o src/hello.c
-	${CC} ${CCOPTS} -c src/hello.c -o obj/v6502.o
+	${CC} ${CCOPTS} obj/v6502.o src/hello.c -o hello
 
 src/hello.bin: src/hello.s
 	${VASM} -Fbin -o src/hello.bin src/hello.s
