@@ -64,7 +64,7 @@ typedef void WriteFn(address, byte);
 
 /** Called between each CPU cycle.
     Can be used to slow down execution. */
-typedef void TickFn();
+typedef void TickFn(void);
 
 typedef struct cpu_s {
   address pc;

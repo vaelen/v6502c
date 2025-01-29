@@ -27,12 +27,15 @@
 
 #include <signal.h>
 #include <unistd.h>
+#include <ctype.h>
 
-byte mem[0xFFFF];
-cpu c;
+static byte mem[0xFFFF];
+static cpu c;
+static cpu prevc;
 
-void _tick() {
+void _tick(void) {
   usleep(50);
+  prevc = c;
 }
 
 void signal_handler(int sig) {
@@ -96,7 +99,7 @@ void print_pc_change(address old, address new) {
   printf("PC : %04X -> %04X\n", old, new);
 }
 
-void print_memory_header() {
+void print_memory_header(void) {
   puts("       0  1  2  3  4  5  6  7  8  9  A  B  C  D  E  F");
 }
 
@@ -138,7 +141,7 @@ void print_memory(cpu *c, address start, address end) {
   puts("");
 }
 
-void print_help() {
+void print_help(void) {
   puts("Commands:");
   puts("  H | HELP        - show this help screen");
   puts("  R | RESET       - reset CPU");
@@ -169,7 +172,7 @@ void print_help() {
   puts("  SAVE 1000.10F0 <FILENAME> - Save data in Wozmon format.");
 }
 
-void not_implemented() {
+void not_implemented(void) {
   puts("Not Yet Implemented");
 }
 
@@ -344,6 +347,8 @@ int read_file(cpu *c, char *filename) {
   read_lines(c, file);
 
   fclose(file);
+
+  return 0;
 }
 
 int parse_command(cpu *c, char *cmdbuf) {

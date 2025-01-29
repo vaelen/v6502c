@@ -1,4 +1,4 @@
-CC = cc
+CC = clang-18
 CCOPTS = -ansi -Wpedantic -Isrc
 
 # This should be the 6502 oldstyle version of vasm.
