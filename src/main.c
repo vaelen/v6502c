@@ -25,9 +25,26 @@
 
 #include "main.h"
 
-byte mem[0xFFFF];
+#include <signal.h>
+#include <unistd.h>
 
-byte read(address a) {
+byte mem[0xFFFF];
+cpu c;
+
+void _tick() {
+  usleep(50);
+}
+
+void signal_handler(int sig) {
+  switch (sig) {
+  case SIGINT:
+    puts("BREAK");
+    cpu_halt(&c);
+    signal(SIGINT, signal_handler);
+  }
+}
+
+byte _read(address a) {
   if (a == 0xFF00) {
     /** Character device */
     return getchar();
@@ -35,7 +52,7 @@ byte read(address a) {
   return mem[a];
 }
 
-void write(address a, byte b) {
+void _write(address a, byte b) {
   if (a == 0xFF00) {
     /** Character device */
     putchar(b);
@@ -95,11 +112,11 @@ void print_memory(cpu *c, address start, address end) {
   while (current <= end) {
     if (column == 0) {
       if (current != start) {
-	/* new line */
-	puts("");
+        /* new line */
+        puts("");
       }
       if (row == 0) {
-	print_memory_header();
+        print_memory_header();
       }
       row = (row + 1) % 23;
       print_memory_location(current);
@@ -186,16 +203,16 @@ void parseargs(char *cmdbuf, int *argc, char **argv) {
   while (current < end) {
     if (is_whitespace(*current)) {
       if (argv[count] != 0) {
-	/* Found the last non-whitepace character */
-	*current = 0;
-	count++;
-	argv[count] = 0;
+        /* Found the last non-whitepace character */
+        *current = 0;
+        count++;
+        argv[count] = 0;
       }
     } else {
-	if (argv[count] == 0) {
-	  /* Found the first non-whitespace character */
-	  argv[count] = current;
-	}
+      if (argv[count] == 0) {
+        /* Found the first non-whitespace character */
+        argv[count] = current;
+      }
     }
     current++;
   }
@@ -269,11 +286,12 @@ void read_lines(cpu *c, FILE *in) {
     }
 
     if (l == EOF) {
-      done = TRUE;
-    } else {
-      if (parse_command(c, cmdbuf)) {
-	done = TRUE;
+      /** Is this really an EOF, or just an error? */
+      if (feof(in)) {
+        done = TRUE;
       }
+    } else if (parse_command(c, cmdbuf)) {
+        done = TRUE;
     }
   }
   
@@ -365,10 +383,10 @@ int parse_command(cpu *c, char *cmdbuf) {
     if (argc > 1) {
       current = c->pc;
       if (parse_address(argv[1], &c->pc)) {
-	print_pc_change(current, c->pc);
-	cpu_run(c);
+        print_pc_change(current, c->pc);
+        cpu_run(c);
       } else {
-	printf("Invalid address: %s\n", argv[1]);
+        printf("Invalid address: %s\n", argv[1]);
       }
     } else {
       cpu_run(c);
@@ -386,9 +404,9 @@ int parse_command(cpu *c, char *cmdbuf) {
     } else {
       current = c->pc;
       if (!parse_address(argv[1], &c->pc)) {
-	printf("Invalid address: %s\n", argv[1]);
+        printf("Invalid address: %s\n", argv[1]);
       } else {
-	print_pc_change(current, c->pc);
+        print_pc_change(current, c->pc);
       }
     }
   } else if (!strcmp("A", cmd)) {
@@ -397,9 +415,9 @@ int parse_command(cpu *c, char *cmdbuf) {
     } else {
       b = c->a;
       if (!parse_byte(argv[1], &c->a)) {
-	printf("Invalid value: %s\n", argv[1]);
+        printf("Invalid value: %s\n", argv[1]);
       } else {
-	print_register_change("A", b, c->a);
+        print_register_change("A", b, c->a);
       }
     }
   } else if (!strcmp("X", cmd)) {
@@ -408,9 +426,9 @@ int parse_command(cpu *c, char *cmdbuf) {
     } else {
       b = c->x;
       if (!parse_byte(argv[1], &c->x)) {
-	printf("Invalid value: %s\n", argv[1]);
+        printf("Invalid value: %s\n", argv[1]);
       } else {
-	print_register_change("X", b, c->x);
+        print_register_change("X", b, c->x);
       }
     }
   } else if (!strcmp("Y", cmd)) {
@@ -419,9 +437,9 @@ int parse_command(cpu *c, char *cmdbuf) {
     } else {
       b = c->y;
       if (!parse_byte(argv[1], &c->y)) {
-	printf("Invalid value: %s\n", argv[1]);
+        printf("Invalid value: %s\n", argv[1]);
       } else {
-	print_register_change("Y", b, c->y);
+        print_register_change("Y", b, c->y);
       }
     }
   } else if (!strcmp("SR", cmd)) {
@@ -430,9 +448,9 @@ int parse_command(cpu *c, char *cmdbuf) {
     } else {
       b = c->sr;
       if (!parse_byte(argv[1], &c->sr)) {
-	printf("Invalid value: %s\n", argv[1]);
+        printf("Invalid value: %s\n", argv[1]);
       } else {
-	print_register_change("SR", b, c->sr);
+        print_register_change("SR", b, c->sr);
       }
     }
   } else if (!strcmp("SP", cmd)) {
@@ -441,9 +459,9 @@ int parse_command(cpu *c, char *cmdbuf) {
     } else {
       b = c->sp;
       if (!parse_byte(argv[1], &c->sp)) {
-	printf("Invalid value: %s\n", argv[1]);
+        printf("Invalid value: %s\n", argv[1]);
       } else {
-	print_register_change("SP", b, c->sp);
+        print_register_change("SP", b, c->sp);
       }
     }
   } else if (!strcmp("LOAD", cmd)) {
@@ -460,10 +478,10 @@ int parse_command(cpu *c, char *cmdbuf) {
       puts("Please provide a filename.");
     } else {
       if (!parse_address_range(argv[1], &ar)) {
-	printf("Invalid address range: %s\n", argv[1]);
+        printf("Invalid address range: %s\n", argv[1]);
       } else {
-	filename = argv[2];
-	write_file(c, ar, filename);
+        filename = argv[2];
+        write_file(c, ar, filename);
       }
     }
   } else {
@@ -471,70 +489,70 @@ int parse_command(cpu *c, char *cmdbuf) {
     for (i = 0; i < argc; i++) {
       arg = argv[i];
       if (editing == NOT_EDITING) {
-	if (arg[0] == ':') {
-	  /* Write from last address */
-	  editing = EDITING;
-	  current = a;
-	  argv[i]++;
-	  i--;
-	} else if (arg[0] == '.' || parse_address_range(arg, &ar)) {
-	  if (arg[0] == '.') {
-	    /* range starting at last address */
-	    ar.start = a;
-	    arg++;
-	    if (!parse_address(arg, &ar.end)) {
-	      arg--;
-	      printf("Invalid value: %s\n", arg);
-	      i = argc;
-	      break;
-	    }
-	  }
-	  a = ar.start;
-	  if (arg[strlen(arg)-1] == ':') {
-	    editing = EDITING_RANGE;
-	    current = a;
-	    firstarg = i;
-	  } else {
-	    print_memory(c, ar.start, ar.end);
-	  }
-	} else if (parse_address(arg, &a)) {
-	  if (arg[strlen(arg)-1] == ':') {
-	    editing = EDITING;
-	    current = a;
-	  } else if (i < argc &&
-		     argv[i+1][0] == 'R' ||
-		     argv[i+1][0] == 'r') {
-	    /* wozmon alias for 'go' command,
-	       supported for backwards compatibility. */
-	    i = argc;
-	    current = c->pc;
-	    c->pc = a;
-	    print_pc_change(current, c->pc);
-	    cpu_run(c);
-	  } else {
-	    print_memory(c, a, a);
-	  }
-	} else if (i == 0) {
-	  printf("Invalid command: %s\n", arg);
-	  i = argc; /* skip the rest */
-	} else {
-	  printf("Invalid value: %s\n", arg);
-	}
+        if (arg[0] == ':') {
+          /* Write from last address */
+          editing = EDITING;
+          current = a;
+          argv[i]++;
+          i--;
+        } else if (arg[0] == '.' || parse_address_range(arg, &ar)) {
+          if (arg[0] == '.') {
+            /* range starting at last address */
+            ar.start = a;
+            arg++;
+            if (!parse_address(arg, &ar.end)) {
+              arg--;
+              printf("Invalid value: %s\n", arg);
+              i = argc;
+              break;
+            }
+          }
+          a = ar.start;
+          if (arg[strlen(arg)-1] == ':') {
+            editing = EDITING_RANGE;
+            current = a;
+            firstarg = i;
+          } else {
+            print_memory(c, ar.start, ar.end);
+          }
+        } else if (parse_address(arg, &a)) {
+          if (arg[strlen(arg)-1] == ':') {
+            editing = EDITING;
+            current = a;
+          } else if (i < argc &&
+              argv[i+1][0] == 'R' ||
+              argv[i+1][0] == 'r') {
+            /* wozmon alias for 'go' command,
+              supported for backwards compatibility. */
+            i = argc;
+            current = c->pc;
+            c->pc = a;
+            print_pc_change(current, c->pc);
+            cpu_run(c);
+          } else {
+            print_memory(c, a, a);
+          }
+        } else if (i == 0) {
+          printf("Invalid command: %s\n", arg);
+          i = argc; /* skip the rest */
+        } else {
+          printf("Invalid value: %s\n", arg);
+        }
       } else {
-	/* now we should only get bytes */
-	if (parse_byte(arg, &b)) {
-	  c->write(current, b);
-	  current++;
-	  if (editing == EDITING_RANGE) {
-	    if (current > ar.end) {
-	      i = argc; /* skip the rest */
-	    } else if (i == (argc - 1)) {
-	      /* we've reached the end of the input,
-		 but not the end of the addresses */
-	      i = firstarg;
-	    }
-	  }
-	}
+        /* now we should only get bytes */
+        if (parse_byte(arg, &b)) {
+          c->write(current, b);
+          current++;
+          if (editing == EDITING_RANGE) {
+            if (current > ar.end) {
+              i = argc; /* skip the rest */
+            } else if (i == (argc - 1)) {
+              /* we've reached the end of the input,
+          but not the end of the addresses */
+              i = firstarg;
+            }
+          }
+        }
       }
     } /* for i = 1 to argc */
   } /* command list */
@@ -543,12 +561,13 @@ int parse_command(cpu *c, char *cmdbuf) {
 }
 
 int main(int argc, char** argv) {
-  cpu c;
-
   cpu_init(&c);
   
-  c.read = read;
-  c.write = write;
+  c.read = _read;
+  c.write = _write;
+  c.tick = _tick;
+
+  signal(SIGINT, signal_handler);
 
   cpu_reset(&c);
   cpu_step(&c);

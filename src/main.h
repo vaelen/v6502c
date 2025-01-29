@@ -36,8 +36,8 @@ typedef struct addrr {
   address end;
 } address_range;
 
-byte read(address a);
-void write(address a, byte b);
+void tick();
+
 int read_line(FILE *in, char *buf, int maxlen);
 void print_register(char *name, byte value);
 void print_register_change(char *name, byte old, byte new);
