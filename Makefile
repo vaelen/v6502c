@@ -20,9 +20,14 @@ bin/hello: bin obj obj/v6502.o src/hello.c src/hello.h
 	${CC} ${CCOPTS} obj/v6502.o src/hello.c -o bin/hello
 
 src/hello.h: src/hello.s
-	${VASM} -Fbin -o src/hello.bin src/hello.s
-	${VASM} -Fwoz -o src/hello.woz src/hello.s
+	${VASM} -Fbin -dotdir -o src/hello.bin src/hello.s
+	${VASM} -Fwoz -dotdir -o src/hello.woz src/hello.s
 	xxd -i src/hello.bin > src/hello.h
+
+infloop: src/infloop.woz
+
+src/infloop.woz: src/infloop.s
+	${VASM} -Fwoz -dotdir -o src/infloop.woz src/infloop.s
 
 bin:
 	mkdir -p bin
