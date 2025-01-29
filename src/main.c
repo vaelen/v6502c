@@ -32,10 +32,21 @@
 static byte mem[0xFFFF];
 static cpu c;
 static cpu prevc;
+static bool trace;
+static int tick_duration = 50;
 
 void _tick(void) {
-  usleep(50);
-  prevc = c;
+  /* Check for differences */
+  if (trace) {
+    print_pc_change(prevc.pc, c.pc);
+    print_register_change(" A", prevc.a, c.a);
+    print_register_change(" X", prevc.x, c.x);
+    print_register_change(" Y", prevc.y, c.y);
+    print_register_change("SR", prevc.sr, c.sr);
+    print_register_change("SP", prevc.sp, c.sp);
+    prevc = c;
+  }
+  usleep(tick_duration);
 }
 
 void signal_handler(int sig) {
@@ -88,6 +99,9 @@ void print_register(char *name, byte value) {
 }
 
 void print_register_change(char *name, byte old, byte new) {
+  if (old == new) {
+    return;
+  }
   printf("%s : %02X -> %02X\n", name, old, new);
 }
 
@@ -96,6 +110,9 @@ void print_pc(address value) {
 }
 
 void print_pc_change(address old, address new) {
+  if (old == new) {
+    return;
+  }
   printf("PC : %04X -> %04X\n", old, new);
 }
 
@@ -143,11 +160,12 @@ void print_memory(cpu *c, address start, address end) {
 
 void print_help(void) {
   puts("Commands:");
-  puts("  H | HELP        - show this help screen");
-  puts("  R | RESET       - reset CPU");
-  puts("  S | STEP        - step");
-  puts("  G | GO [10F0]   - start execution [at address 10F0 if provided]");
-  puts("  Q | QUIT        - quit");
+  puts("  H | HELP         - show this help screen");
+  puts("  R | RESET        - reset CPU");
+  puts("  S | STEP         - step");
+  puts("  G | GO [10F0]    - start execution [at address 10F0 if provided]");
+  puts("  T | TRACE [10F0] - start execution and print all changes to CPU state");
+  puts("  Q | QUIT         - quit");
   puts("");
   puts("Working with Registers:");
   puts("  ?         - print all register values");
@@ -384,11 +402,13 @@ int parse_command(cpu *c, char *cmdbuf) {
     cpu_step(c);
   } else if (!strcmp("S", cmd) || !strcmp("STEP", cmd)) {
     cpu_step(c);
-  } else if (!strcmp("G", cmd) || !strcmp("GO", cmd)) {
+  } else if (!strcmp("G", cmd) || !strcmp("GO", cmd) ||
+             !strcmp("T", cmd) || !strcmp("TRACE", cmd)) {
+    trace = (!strcmp("T", cmd) || !strcmp("TRACE", cmd));
+    prevc = *c;
     if (argc > 1) {
       current = c->pc;
       if (parse_address(argv[1], &c->pc)) {
-        print_pc_change(current, c->pc);
         cpu_run(c);
       } else {
         printf("Invalid address: %s\n", argv[1]);
