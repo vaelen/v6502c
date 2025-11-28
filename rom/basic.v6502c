@@ -1,0 +1,8 @@
+; V6502C BASIC startup script
+; This file is loaded by the emulator on startup
+
+; First, load the BASIC ROM
+LOAD rom/v6502c.woz
+
+; Start execution at COLD_START
+GO F01A

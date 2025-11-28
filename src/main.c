@@ -24,18 +24,30 @@
  */
 
 #include "main.h"
+#include "devices.h"
 
 #include <signal.h>
 #include <unistd.h>
 #include <ctype.h>
 
-static byte mem[0xFFFF];
+static byte mem[0x10000];
 static cpu c;
 static cpu prevc;
 static bool trace;
 static int tick_duration = 50;
 
+/* Emulated devices */
+static acia_t *acia1;   /* Primary serial: stdin/stdout */
+static acia_t *acia2;   /* Secondary serial: disconnected */
+static via_t *via;      /* VIA with timers */
+static fileio_t *fio;   /* File I/O device */
+
 void _tick(void) {
+  /* Update VIA timers */
+  if (via != NULL) {
+    via_tick(via);
+  }
+
   /* Check for differences */
   if (trace) {
     print_pc_change(prevc.pc, c.pc);
@@ -59,17 +71,44 @@ void signal_handler(int sig) {
 }
 
 byte _read(address a) {
-  if (a == 0xFF00) {
-    /** Character device */
-    return getchar();
+  /* ACIA #1: $C010-$C013 */
+  if (a >= 0xC010 && a <= 0xC013) {
+    return acia_read(acia1, (byte)(a & 0x03));
+  }
+  /* ACIA #2: $C020-$C023 */
+  if (a >= 0xC020 && a <= 0xC023) {
+    return acia_read(acia2, (byte)(a & 0x03));
+  }
+  /* VIA: $C030-$C03F */
+  if (a >= 0xC030 && a <= 0xC03F) {
+    return via_read(via, (byte)(a & 0x0F));
+  }
+  /* File I/O: $C040-$C04F */
+  if (a >= 0xC040 && a <= 0xC04F) {
+    return fileio_read(fio, (byte)(a & 0x0F));
   }
   return mem[a];
 }
 
 void _write(address a, byte b) {
-  if (a == 0xFF00) {
-    /** Character device */
-    putchar(b);
+  /* ACIA #1: $C010-$C013 */
+  if (a >= 0xC010 && a <= 0xC013) {
+    acia_write(acia1, (byte)(a & 0x03), b);
+    return;
+  }
+  /* ACIA #2: $C020-$C023 */
+  if (a >= 0xC020 && a <= 0xC023) {
+    acia_write(acia2, (byte)(a & 0x03), b);
+    return;
+  }
+  /* VIA: $C030-$C03F */
+  if (a >= 0xC030 && a <= 0xC03F) {
+    via_write(via, (byte)(a & 0x0F), b);
+    return;
+  }
+  /* File I/O: $C040-$C04F */
+  if (a >= 0xC040 && a <= 0xC04F) {
+    fileio_write(fio, (byte)(a & 0x0F), b);
     return;
   }
   mem[a] = b;
@@ -601,8 +640,16 @@ int parse_command(cpu *c, char *cmdbuf) {
 }
 
 int main(int argc, char** argv) {
+  int i;
+
+  /* Create device instances */
+  acia1 = acia_create(stdin, stdout);
+  acia2 = acia_create(NULL, NULL);  /* Disconnected for now */
+  via = via_create();
+  fio = fileio_create();
+
   cpu_init(&c);
-  
+
   c.read = _read;
   c.write = _write;
   c.tick = _tick;
@@ -616,10 +663,21 @@ int main(int argc, char** argv) {
   puts(V6502C_COPYRIGHT);
   puts("");
 
+  /* Process command-line files as scripts */
+  for (i = 1; i < argc; i++) {
+    read_file(&c, argv[i]);
+  }
+
   puts("Type 'help' for help.");
   puts("");
 
   read_lines(&c, stdin);
+
+  /* Clean up devices */
+  acia_destroy(acia1);
+  acia_destroy(acia2);
+  via_destroy(via);
+  fileio_destroy(fio);
 
   return 0;
 }
