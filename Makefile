@@ -4,11 +4,13 @@ CCOPTS = -ansi -Wpedantic -Isrc
 # This should be the 6502 oldstyle version of vasm.
 VASM = vasm6502
 
-all: v6502c hello
+all: v6502c hello test
 
 v6502c: bin/v6502c
 
 hello: bin/hello
+
+test: bin/test
 
 bin/v6502c: bin obj obj/v6502.o src/main.c src/main.h
 	${CC} ${CCOPTS} obj/v6502.o src/main.c -o bin/v6502c
@@ -18,6 +20,9 @@ obj/v6502.o: obj src/inst.h src/v6502.h src/v6502.c
 
 bin/hello: bin obj obj/v6502.o src/hello.c src/hello.h
 	${CC} ${CCOPTS} obj/v6502.o src/hello.c -o bin/hello
+
+bin/test: bin obj obj/v6502.o src/test.c src/test.h
+	${CC} ${CCOPTS} obj/v6502.o src/test.c -o bin/test
 
 src/hello.h: src/hello.s
 	${VASM} -Fbin -dotdir -o src/hello.bin src/hello.s
