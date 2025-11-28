@@ -43,6 +43,17 @@ cpu_reset(&c);
 cpu_run(&c);            // runs until BRK or cpu_halt()
 ```
 
+### Triggering Interrupts
+
+External code can trigger interrupts to implement virtual hardware:
+```c
+cpu_irq(&c);            // Trigger maskable IRQ (checked after each instruction)
+cpu_nmi(&c);            // Trigger non-maskable interrupt (cannot be masked)
+```
+
+IRQ is level-triggered: if masked (I flag set), it stays pending until enabled.
+NMI always has priority over IRQ. Software can trigger interrupts via the BRK instruction.
+
 ### Interactive Emulator
 
 - `src/main.c` - Wozmon-compatible debugger with register/memory inspection
@@ -64,7 +75,8 @@ cpu_run(&c);            // runs until BRK or cpu_halt()
 - **Complete 6502 instruction set** - All basic instructions work correctly
 - **BCD Mode** - Full Binary Coded Decimal support for ADC/SBC operations
 - **CPU Variants** - Support for both original 6502 and 65C02 BCD flag behavior
-- **Comprehensive test suite** - 22 test cases covering all instruction types
+- **Interrupts** - Full IRQ, NMI, and BRK support with proper stack frame handling
+- **Comprehensive test suite** - 29 test cases covering all instruction types including interrupts
 
 ### **BCD Mode Implementation:**
 - **ADC BCD**: Proper decimal adjustment with nibble overflow handling
@@ -74,8 +86,7 @@ cpu_run(&c);            // runs until BRK or cpu_halt()
 
 ## Incomplete Features
 
-1. **Interrupts** - IRQ/NMI flags exist but vectoring not implemented
-2. **Some 65C02 opcodes** - BBR, BBS, RMB, SMB, TSB, TRB defined in tables but not in execution switch
+1. **Some 65C02 opcodes** - BBR, BBS, RMB, SMB, TSB, TRB defined in tables but not in execution switch
 
 ## Code Style
 

@@ -113,6 +113,38 @@ void _reset(cpu *c) {
   c->nmi = FALSE;
 }
 
+/**
+ * Helper method to service an interrupt.
+ * @param c - CPU pointer
+ * @param vector - The vector address to fetch the handler from
+ * @param is_brk - TRUE if this is a BRK instruction (sets BREAK_FLAG in pushed SR)
+ */
+void _service_interrupt(cpu *c, address vector, bool is_brk) {
+  byte pushed_sr;
+  byte lo, hi;
+
+  /* Push PC (high byte first, then low - authentic 6502 order) */
+  hi = (byte)(c->pc >> 8);
+  lo = (byte)(c->pc & 0xFF);
+  _push(c, hi);
+  _push(c, lo);
+
+  /* Push SR with bit 5 always set, BREAK_FLAG set only for BRK */
+  pushed_sr = c->sr | (1 << 5);
+  if (is_brk) {
+    pushed_sr |= (1 << BREAK_FLAG);
+  } else {
+    pushed_sr &= ~(1 << BREAK_FLAG);
+  }
+  _push(c, pushed_sr);
+
+  /* Set IRQ_DISABLE flag */
+  _set_bit(c, IRQ_DISABLE);
+
+  /* Load PC from vector */
+  c->pc = cpu_read_address(c, vector);
+}
+
 void cpu_init(cpu *c) {
   if (c == NULL) return; 
   c->write = NULL;
@@ -438,9 +470,9 @@ void cpu_step(cpu *c) {
     }
     break;
   case I_BRK:
-    /* break */
-    /** TODO: Replace with IRQ */
-    cpu_halt(c);
+    /* software interrupt */
+    c->pc++;  /* Skip padding byte after BRK opcode */
+    _service_interrupt(c, IRQ_VECTOR, TRUE);
     break;
   case I_BVC:
     /* branch on overflow clear */
@@ -561,11 +593,12 @@ void cpu_step(cpu *c) {
     c->pc = a;
     break;
   case I_JSR:
-    /* jump to subroutine */
-    lo = (byte) c->pc;
-    hi = (byte) c->pc >> 8;
-    _push(c, lo);
+    /* jump to subroutine - push return address minus 1 */
+    c->pc--;
+    hi = (byte)(c->pc >> 8);
+    lo = (byte)(c->pc & 0xFF);
     _push(c, hi);
+    _push(c, lo);
     c->pc = a;
     break;
   case I_LDA:
@@ -687,15 +720,15 @@ void cpu_step(cpu *c) {
     }
 
     /* pull pc */
-    hi = _pop(c);
     lo = _pop(c);
+    hi = _pop(c);
     c->pc = (hi << 8) | lo;
     break;
   case I_RTS:
-    /* return from subroutine */
-    hi = _pop(c);
+    /* return from subroutine - add 1 to popped address */
     lo = _pop(c);
-    c->pc = (hi << 8) | lo;
+    hi = _pop(c);
+    c->pc = ((hi << 8) | lo) + 1;
     break;
   case I_SBC:
     /* subtract memory from A with borrow */
@@ -831,11 +864,13 @@ void cpu_step(cpu *c) {
     break;
   }
 
-  /** Handle Interrupts */
+  /* Handle Interrupts - checked after each instruction */
   if (c->nmi) {
     c->nmi = FALSE;
-  } else if (c->irq) {
+    _service_interrupt(c, NMI_VECTOR, FALSE);
+  } else if (c->irq && !_check_bit(c, IRQ_DISABLE)) {
     c->irq = FALSE;
+    _service_interrupt(c, IRQ_VECTOR, FALSE);
   }
   
 }

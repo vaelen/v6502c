@@ -655,6 +655,282 @@ void test_cpu_variant_65c02(void) {
     pass("65C02 BCD overflow behavior");
 }
 
+/* JSR/RTS Stack Order Tests */
+void test_jsr_rts_stack_order(void) {
+    byte pushed_pch, pushed_pcl;
+
+    test_reset_cpu();
+
+    /* Set up a subroutine at 0x1000 that just returns */
+    test_memory[0x1000] = 0x60; /* RTS */
+
+    /* Place JSR at 0x0200 - should jump to 0x1000 */
+    test_memory[0x0200] = 0x20; /* JSR $1000 */
+    test_memory[0x0201] = 0x00;
+    test_memory[0x0202] = 0x10;
+
+    /* Execute JSR */
+    cpu_step(&test_cpu);
+
+    /* Check PC jumped to subroutine */
+    if (test_cpu.pc != 0x1000) {
+        fail("JSR/RTS stack order", "JSR should jump to $1000");
+        return;
+    }
+
+    /* Check stack contents - authentic 6502 pushes PCH first, then PCL */
+    /* Return address pushed is PC-1 (pointing to last byte of JSR instruction) */
+    /* SP was 0xFD, after two pushes it's 0xFB */
+    pushed_pch = test_memory[0x01FD]; /* First pushed (high byte) */
+    pushed_pcl = test_memory[0x01FC]; /* Second pushed (low byte) */
+
+    /* The return address should be 0x0202 (last byte of JSR instruction) */
+    if (pushed_pch != 0x02 || pushed_pcl != 0x02) {
+        fail("JSR/RTS stack order", "JSR should push PCH first then PCL");
+        return;
+    }
+
+    /* Execute RTS - should return to 0x0203 (return addr + 1) */
+    cpu_step(&test_cpu);
+
+    if (test_cpu.pc != 0x0203) {
+        fail("JSR/RTS stack order", "RTS should return to address after JSR");
+        return;
+    }
+
+    pass("JSR/RTS stack order");
+}
+
+/* BRK Instruction Tests */
+void test_brk(void) {
+    byte pushed_pch, pushed_pcl, pushed_sr;
+
+    test_reset_cpu();
+
+    /* Set up IRQ vector to point to handler at 0x2000 */
+    test_memory[0xFFFE] = 0x00;
+    test_memory[0xFFFF] = 0x20;
+
+    /* Set up a simple handler that just does RTI */
+    test_memory[0x2000] = 0x40; /* RTI */
+
+    /* Place BRK at 0x0200 with padding byte */
+    test_memory[0x0200] = 0x00; /* BRK */
+    test_memory[0x0201] = 0xEA; /* NOP (padding byte, skipped) */
+    test_memory[0x0202] = 0xEA; /* NOP (return point) */
+
+    /* Clear IRQ_DISABLE to verify it gets set */
+    test_cpu.sr &= ~(1 << 2);
+
+    /* Execute BRK */
+    cpu_step(&test_cpu);
+
+    /* Verify PC jumped to handler */
+    if (test_cpu.pc != 0x2000) {
+        fail("BRK instruction", "PC should jump to IRQ vector");
+        return;
+    }
+
+    /* Verify SP decremented by 3 (PC high, PC low, SR) */
+    if (test_cpu.sp != 0xFA) {
+        fail("BRK instruction", "SP should decrement by 3");
+        return;
+    }
+
+    /* Verify IRQ_DISABLE is now set */
+    if (!check_flag(2)) {
+        fail("BRK instruction", "IRQ_DISABLE should be set");
+        return;
+    }
+
+    /* Check stack contents */
+    pushed_pch = test_memory[0x01FD];
+    pushed_pcl = test_memory[0x01FC];
+    pushed_sr = test_memory[0x01FB];
+
+    /* Verify pushed PC points past the padding byte (0x0202) */
+    if (pushed_pch != 0x02 || pushed_pcl != 0x02) {
+        fail("BRK instruction", "Pushed PC should be $0202 (after padding byte)");
+        return;
+    }
+
+    /* Verify BREAK flag is set in pushed SR */
+    if (!(pushed_sr & (1 << 4))) {
+        fail("BRK instruction", "BREAK flag should be set in pushed SR");
+        return;
+    }
+
+    pass("BRK instruction");
+}
+
+/* RTI Instruction Tests */
+void test_rti(void) {
+    test_reset_cpu();
+
+    /* Manually set up an interrupt stack frame */
+    /* Push order was: PCH, PCL, SR - so on stack (from high to low): SR, PCL, PCH */
+    test_memory[0x01FD] = 0x12; /* PCH */
+    test_memory[0x01FC] = 0x34; /* PCL */
+    test_memory[0x01FB] = 0x00; /* SR with all flags clear */
+    test_cpu.sp = 0xFA; /* Point below the pushed data */
+
+    /* Set some flags to verify they get restored */
+    test_cpu.sr = 0xFF;
+
+    /* Place RTI instruction */
+    test_memory[0x0200] = 0x40; /* RTI */
+
+    cpu_step(&test_cpu);
+
+    /* Verify PC was restored */
+    if (test_cpu.pc != 0x1234) {
+        fail("RTI instruction", "PC should be restored to $1234");
+        return;
+    }
+
+    /* Verify SP was restored (incremented by 3) */
+    if (test_cpu.sp != 0xFD) {
+        fail("RTI instruction", "SP should be $FD after RTI");
+        return;
+    }
+
+    pass("RTI instruction");
+}
+
+/* Hardware IRQ Tests */
+void test_irq(void) {
+    byte pushed_sr;
+
+    test_reset_cpu();
+
+    /* Set up IRQ vector */
+    test_memory[0xFFFE] = 0x00;
+    test_memory[0xFFFF] = 0x30; /* Handler at 0x3000 */
+
+    /* Place NOP instruction for CPU to execute */
+    test_memory[0x0200] = 0xEA; /* NOP */
+
+    /* Clear IRQ_DISABLE to allow interrupts */
+    test_cpu.sr &= ~(1 << 2);
+
+    /* Trigger IRQ */
+    cpu_irq(&test_cpu);
+
+    /* Execute one instruction - IRQ should be serviced after */
+    cpu_step(&test_cpu);
+
+    /* Verify PC jumped to handler */
+    if (test_cpu.pc != 0x3000) {
+        fail("IRQ handling", "PC should jump to IRQ vector");
+        return;
+    }
+
+    /* Verify BREAK flag is CLEAR in pushed SR (hardware interrupt) */
+    pushed_sr = test_memory[0x01FB];
+    if (pushed_sr & (1 << 4)) {
+        fail("IRQ handling", "BREAK flag should be clear in pushed SR for hardware IRQ");
+        return;
+    }
+
+    pass("IRQ handling");
+}
+
+/* NMI Tests */
+void test_nmi(void) {
+    test_reset_cpu();
+
+    /* Set up NMI vector */
+    test_memory[0xFFFA] = 0x00;
+    test_memory[0xFFFB] = 0x40; /* Handler at 0x4000 */
+
+    /* Set IRQ_DISABLE - NMI should still work */
+    test_cpu.sr |= (1 << 2);
+
+    /* Place NOP instruction */
+    test_memory[0x0200] = 0xEA; /* NOP */
+
+    /* Trigger NMI */
+    cpu_nmi(&test_cpu);
+
+    /* Execute one instruction - NMI should be serviced after */
+    cpu_step(&test_cpu);
+
+    /* Verify PC jumped to NMI handler */
+    if (test_cpu.pc != 0x4000) {
+        fail("NMI handling", "PC should jump to NMI vector");
+        return;
+    }
+
+    pass("NMI handling");
+}
+
+/* IRQ Masking Tests */
+void test_irq_masking(void) {
+    test_reset_cpu();
+
+    /* Set up IRQ vector */
+    test_memory[0xFFFE] = 0x00;
+    test_memory[0xFFFF] = 0x30;
+
+    /* Place NOP instructions */
+    test_memory[0x0200] = 0xEA; /* NOP */
+    test_memory[0x0201] = 0xEA; /* NOP */
+
+    /* Set IRQ_DISABLE to mask interrupts */
+    test_cpu.sr |= (1 << 2);
+
+    /* Trigger IRQ */
+    cpu_irq(&test_cpu);
+
+    /* Execute instruction - IRQ should NOT be serviced */
+    cpu_step(&test_cpu);
+
+    /* Verify PC did NOT jump to handler */
+    if (test_cpu.pc == 0x3000) {
+        fail("IRQ masking", "IRQ should be masked when IRQ_DISABLE is set");
+        return;
+    }
+
+    /* Verify PC advanced normally (past NOP) */
+    if (test_cpu.pc != 0x0201) {
+        fail("IRQ masking", "PC should advance to next instruction");
+        return;
+    }
+
+    pass("IRQ masking");
+}
+
+/* Interrupt Priority Tests */
+void test_interrupt_priority(void) {
+    test_reset_cpu();
+
+    /* Set up both vectors */
+    test_memory[0xFFFA] = 0x00;
+    test_memory[0xFFFB] = 0x40; /* NMI at 0x4000 */
+    test_memory[0xFFFE] = 0x00;
+    test_memory[0xFFFF] = 0x30; /* IRQ at 0x3000 */
+
+    /* Clear IRQ_DISABLE */
+    test_cpu.sr &= ~(1 << 2);
+
+    /* Place NOP */
+    test_memory[0x0200] = 0xEA;
+
+    /* Trigger both interrupts */
+    cpu_irq(&test_cpu);
+    cpu_nmi(&test_cpu);
+
+    /* Execute - NMI should take priority */
+    cpu_step(&test_cpu);
+
+    if (test_cpu.pc != 0x4000) {
+        fail("Interrupt priority", "NMI should take priority over IRQ");
+        return;
+    }
+
+    pass("Interrupt priority");
+}
+
 /* Main test runner */
 int main(void) {
     printf("6502 Emulator Test Suite\n");
@@ -685,7 +961,14 @@ int main(void) {
     test_transfers();
     test_cpu_variant_6502();
     test_cpu_variant_65c02();
-    
+    test_jsr_rts_stack_order();
+    test_brk();
+    test_rti();
+    test_irq();
+    test_nmi();
+    test_irq_masking();
+    test_interrupt_priority();
+
     test_cleanup();
     
     printf("\n========================\n");
