@@ -417,8 +417,19 @@ int parse_command(cpu *c, char *cmdbuf) {
   address current = 0;
   byte b = 0;
   address_range ar;
-  
-  parseargs(cmdbuf, &argc, argv);
+  char *p = cmdbuf;
+
+  /* Skip leading whitespace */
+  while (*p && is_whitespace(*p)) {
+    p++;
+  }
+
+  /* Ignore comment lines starting with ';' */
+  if (*p == ';') {
+    return 0;
+  }
+
+  parseargs(p, &argc, argv);
 
   cmd = argv[0];
   if (cmd == NULL) {
