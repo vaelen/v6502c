@@ -118,7 +118,13 @@ void cpu_init(cpu *c) {
   c->write = NULL;
   c->read = NULL;
   c->tick = NULL;
+  c->variant = CPU_6502;  /* Default to original 6502 */
   _reset(c);
+}
+
+void cpu_set_variant(cpu *c, enum cpu_variant_t variant) {
+  if (c == NULL) return;
+  c->variant = variant;
 }
 
 byte cpu_read_byte(cpu *c, address a) {
@@ -299,6 +305,7 @@ void cpu_step(cpu *c) {
       
       if (_check_bit(c, BCD_FLAG)) {
         /* BCD (Decimal) Mode */
+        byte original_a = c->a;
         int lo_nibble = (c->a & 0x0F) + (b & 0x0F) + carry_in;
         int hi_nibble = (c->a >> 4) + (b >> 4);
         int binary_result = c->a + b + carry_in;
@@ -323,8 +330,18 @@ void cpu_step(cpu *c) {
         _set_zero_flag(c, binary_result & 0xFF);
         _set_negative_flag(c, binary_result);
         
-        /* Overflow flag behavior in BCD is complex - simplified here */
-        _clear_bit(c, OVERFLOW_FLAG);
+        /* Overflow flag behavior differs between CPU variants */
+        if (c->variant == CPU_65C02) {
+          /* 65C02: V flag reflects signed overflow like in binary mode */
+          if (((original_a ^ binary_result) & (b ^ binary_result) & 0x80) != 0) {
+            _set_bit(c, OVERFLOW_FLAG);
+          } else {
+            _clear_bit(c, OVERFLOW_FLAG);
+          }
+        } else {
+          /* Original 6502: V flag undefined in BCD mode */
+          _clear_bit(c, OVERFLOW_FLAG);
+        }
         
       } else {
         /* Binary Mode */
@@ -687,6 +704,7 @@ void cpu_step(cpu *c) {
       
       if (_check_bit(c, BCD_FLAG)) {
         /* BCD (Decimal) Mode */
+        byte original_a = c->a;
         int lo_nibble = (c->a & 0x0F) - (b & 0x0F) - borrow;
         int hi_nibble = (c->a >> 4) - (b >> 4);
         int binary_result = c->a - b - borrow;
@@ -711,8 +729,18 @@ void cpu_step(cpu *c) {
         _set_zero_flag(c, binary_result & 0xFF);
         _set_negative_flag(c, binary_result);
         
-        /* Overflow flag behavior in BCD is complex - simplified here */
-        _clear_bit(c, OVERFLOW_FLAG);
+        /* Overflow flag behavior differs between CPU variants */
+        if (c->variant == CPU_65C02) {
+          /* 65C02: V flag reflects signed overflow like in binary mode */
+          if (((original_a ^ b) & (original_a ^ binary_result) & 0x80) != 0) {
+            _set_bit(c, OVERFLOW_FLAG);
+          } else {
+            _clear_bit(c, OVERFLOW_FLAG);
+          }
+        } else {
+          /* Original 6502: V flag undefined in BCD mode */
+          _clear_bit(c, OVERFLOW_FLAG);
+        }
         
       } else {
         /* Binary Mode */

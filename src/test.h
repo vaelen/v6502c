@@ -71,5 +71,7 @@ void test_ora(void);
 void test_push_pull(void);
 void test_rotates(void);
 void test_transfers(void);
+void test_cpu_variant_6502(void);
+void test_cpu_variant_65c02(void);
 
 #endif

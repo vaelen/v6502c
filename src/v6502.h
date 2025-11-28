@@ -66,6 +66,12 @@ typedef void WriteFn(address, byte);
     Can be used to slow down execution. */
 typedef void TickFn(void);
 
+/** CPU variant types */
+enum cpu_variant_t {
+  CPU_6502,   /* Original NMOS 6502 */
+  CPU_65C02   /* CMOS 65C02 with improved BCD flags */
+};
+
 typedef struct cpu_s {
   address pc;
   byte a;
@@ -77,6 +83,7 @@ typedef struct cpu_s {
   bool reset;
   bool irq;
   bool nmi;
+  enum cpu_variant_t variant;
   ReadFn *read;
   WriteFn *write;
   TickFn *tick;
@@ -84,6 +91,9 @@ typedef struct cpu_s {
 
 /** Call this to initialize the CPU data structure before using it. */
 void cpu_init(cpu *c);
+
+/** Set the CPU variant (6502 vs 65C02) */
+void cpu_set_variant(cpu *c, enum cpu_variant_t variant);
 
 /** Read a byte from the given address. */
 byte cpu_read_byte(cpu *c, address a);

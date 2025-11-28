@@ -175,6 +175,7 @@ void print_help(void) {
   puts("  Y [FF]    - print or set the Y index register");
   puts("  SR [FF]   - print or set the status register");
   puts("  SP [FF]   - print or set the stack pointer");
+  puts("  CPU [6502|65C02] - print or set CPU variant for BCD behavior");
   puts("");
   puts("Memory Access (Wozmon Compatible)");
   puts("  FFFF            - print value at address FFFF");
@@ -487,6 +488,20 @@ int parse_command(cpu *c, char *cmdbuf) {
         printf("Invalid value: %s\n", argv[1]);
       } else {
         print_register_change("SP", b, c->sp);
+      }
+    }
+  } else if (!strcmp("CPU", cmd)) {
+    if (argc == 1) {
+      printf("CPU : %s\n", (c->variant == CPU_6502) ? "6502" : "65C02");
+    } else {
+      if (!strcmp("6502", argv[1])) {
+        cpu_set_variant(c, CPU_6502);
+        printf("CPU : 65C02 -> 6502\n");
+      } else if (!strcmp("65C02", argv[1])) {
+        cpu_set_variant(c, CPU_65C02);
+        printf("CPU : 6502 -> 65C02\n");
+      } else {
+        printf("Invalid CPU variant: %s (use 6502 or 65C02)\n", argv[1]);
       }
     }
   } else if (!strcmp("LOAD", cmd)) {

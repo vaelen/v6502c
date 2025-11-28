@@ -585,6 +585,76 @@ void test_transfers(void) {
     pass("Transfer operations");
 }
 
+/* CPU Variant Tests - Original 6502 BCD Overflow */
+void test_cpu_variant_6502(void) {
+    test_reset_cpu();
+    cpu_set_variant(&test_cpu, CPU_6502);
+    
+    /* Test ADC: V flag is cleared in BCD mode (6502 behavior) */
+    test_cpu.sr |= (1 << 3); /* Set decimal flag */
+    test_cpu.a = 0x7F; /* +127 in binary, but 79 in BCD */
+    test_memory[0x0200] = 0x69; /* ADC #$01 */
+    test_memory[0x0201] = 0x01;
+    cpu_step(&test_cpu);
+    
+    if ((test_cpu.sr & (1 << 6)) != 0) { /* OVERFLOW_FLAG */
+        fail("6502 ADC BCD overflow", "V flag should be clear in BCD mode on original 6502");
+        return;
+    }
+    
+    /* Test SBC: V flag is also cleared in BCD mode (6502 behavior) */
+    test_reset_cpu();
+    cpu_set_variant(&test_cpu, CPU_6502);
+    test_cpu.sr |= (1 << 3); /* Set decimal flag */
+    test_cpu.sr |= (1 << 0); /* Set carry (no borrow) */
+    test_cpu.a = 0x00; /* 0 in both binary and BCD */
+    test_memory[0x0200] = 0xE9; /* SBC #$7F */
+    test_memory[0x0201] = 0x7F;
+    cpu_step(&test_cpu);
+    
+    if ((test_cpu.sr & (1 << 6)) != 0) { /* OVERFLOW_FLAG */
+        fail("6502 SBC BCD overflow", "V flag should be clear in BCD mode on original 6502");
+        return;
+    }
+    
+    pass("6502 BCD overflow behavior");
+}
+
+/* CPU Variant Tests - 65C02 BCD Overflow */
+void test_cpu_variant_65c02(void) {
+    test_reset_cpu();
+    cpu_set_variant(&test_cpu, CPU_65C02);
+    
+    /* Test ADC: V flag should work in BCD mode (65C02 behavior) */
+    test_cpu.sr |= (1 << 3); /* Set decimal flag */
+    test_cpu.a = 0x7F; /* +127 in binary, triggers signed overflow */
+    test_memory[0x0200] = 0x69; /* ADC #$01 */
+    test_memory[0x0201] = 0x01;
+    cpu_step(&test_cpu);
+    
+    if ((test_cpu.sr & (1 << 6)) == 0) { /* OVERFLOW_FLAG */
+        fail("65C02 ADC BCD overflow", "V flag should be set for signed overflow in 65C02 BCD mode");
+        return;
+    }
+    
+    /* Test SBC: V flag should also work in BCD mode (65C02 behavior) */
+    test_reset_cpu();
+    cpu_set_variant(&test_cpu, CPU_65C02);
+    test_cpu.sr |= (1 << 3); /* Set decimal flag */
+    test_cpu.sr |= (1 << 0); /* Set carry (no borrow) */
+    test_cpu.a = 0x80; /* -128 in signed binary, should trigger overflow */
+    test_memory[0x0200] = 0xE9; /* SBC #$01 */
+    test_memory[0x0201] = 0x01;
+    cpu_step(&test_cpu);
+    
+    if ((test_cpu.sr & (1 << 6)) == 0) { /* OVERFLOW_FLAG */
+        fail("65C02 SBC BCD overflow", "V flag should be set for signed overflow in 65C02 BCD mode");
+        return;
+    }
+    
+    pass("65C02 BCD overflow behavior");
+}
+
 /* Main test runner */
 int main(void) {
     printf("6502 Emulator Test Suite\n");
@@ -613,6 +683,8 @@ int main(void) {
     test_push_pull();
     test_rotates();
     test_transfers();
+    test_cpu_variant_6502();
+    test_cpu_variant_65c02();
     
     test_cleanup();
     

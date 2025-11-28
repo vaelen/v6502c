@@ -48,12 +48,34 @@ cpu_run(&c);            // runs until BRK or cpu_halt()
 - `src/main.c` - Wozmon-compatible debugger with register/memory inspection
 - Uses address `0xFF00` as character I/O device (getchar on read, putchar on write)
 - SIGINT handler allows graceful interruption of running programs
+- **CPU variant selection** - Switch between 6502 and 65C02 BCD behavior with `CPU [6502|65C02]` command
+
+### Test Suite
+
+- `src/test.c` - Comprehensive 6502 instruction test framework
+- **22 test categories** covering arithmetic, logic, memory, stack, and CPU variant operations  
+- Color-coded pass/fail output with detailed failure descriptions
+- **BCD mode validation** - Tests both addition and subtraction in decimal mode
+- **CPU variant testing** - Verifies different overflow flag behavior between 6502 and 65C02
+
+## Features
+
+### ✅ **Implemented:**
+- **Complete 6502 instruction set** - All basic instructions work correctly
+- **BCD Mode** - Full Binary Coded Decimal support for ADC/SBC operations
+- **CPU Variants** - Support for both original 6502 and 65C02 BCD flag behavior
+- **Comprehensive test suite** - 22 test cases covering all instruction types
+
+### **BCD Mode Implementation:**
+- **ADC BCD**: Proper decimal adjustment with nibble overflow handling
+- **SBC BCD**: Correct decimal borrow with +10 adjustment algorithm  
+- **Flag behavior**: N/Z flags reflect binary result (authentic 6502 behavior)
+- **CPU variants**: 6502 clears V flag in BCD, 65C02 maintains overflow detection
 
 ## Incomplete Features
 
 1. **Interrupts** - IRQ/NMI flags exist but vectoring not implemented
-2. **BCD Mode** - Decimal flag can be set but ADC/SBC don't use it
-3. **Some 65C02 opcodes** - BBR, BBS, RMB, SMB, TSB, TRB defined in tables but not in execution switch
+2. **Some 65C02 opcodes** - BBR, BBS, RMB, SMB, TSB, TRB defined in tables but not in execution switch
 
 ## Code Style
 
