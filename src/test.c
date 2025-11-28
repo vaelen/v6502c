@@ -295,13 +295,14 @@ void test_bit(void) {
 
 /* Branch Instructions Tests */
 void test_branches(void) {
+    address old_pc;
     test_reset_cpu();
     
     /* Test BEQ when zero flag is set */
     test_cpu.sr |= (1 << 1); /* Set zero flag */
     test_memory[0x0200] = 0xF0; /* BEQ +$10 */
     test_memory[0x0201] = 0x10;
-    address old_pc = test_cpu.pc;
+    old_pc = test_cpu.pc;
     cpu_step(&test_cpu);
     
     if (test_cpu.pc != old_pc + 2 + 0x10) {
@@ -473,9 +474,10 @@ void test_logical_shifts(void) {
 
 /* NOP Test */
 void test_nop(void) {
+    cpu state_before;
     test_reset_cpu();
     
-    cpu state_before = test_cpu;
+    state_before = test_cpu;
     test_memory[0x0200] = 0xEA; /* NOP */
     cpu_step(&test_cpu);
     
@@ -513,12 +515,13 @@ void test_ora(void) {
 
 /* Push and Pull Tests */
 void test_push_pull(void) {
+    byte old_sp;
     test_reset_cpu();
     
     /* Test PHA */
     test_cpu.a = 0x42;
     test_memory[0x0200] = 0x48; /* PHA */
-    byte old_sp = test_cpu.sp;
+    old_sp = test_cpu.sp;
     cpu_step(&test_cpu);
     
     if (test_cpu.sp != old_sp - 1) {

@@ -74,14 +74,14 @@ void _set_negative_flag(cpu *c, byte value) {
 
 /** Helper method to push a value onto the stack. */
 void _push(cpu *c, byte value) {
-  cpu_write_byte(c, c->sp, value);
+  cpu_write_byte(c, 0x0100 + c->sp, value);
   c->sp--;
 }
 
 /** Helper method to pop a value off the stack. */
 byte _pop(cpu *c) {
   c->sp++;
-  return cpu_read_byte(c, c->sp);
+  return cpu_read_byte(c, 0x0100 + c->sp);
 }
 
 bool _is_store(enum instruction_t i) {
@@ -294,20 +294,62 @@ void cpu_step(cpu *c) {
   switch (instruction) {
   case I_ADC:
     /* add with carry */
-    temp = c->a;
-    c->a += b;
-    if (_check_bit(c, CARRY_FLAG)) {
-      c->a++;
+    {
+      int carry_in = _check_bit(c, CARRY_FLAG) ? 1 : 0;
+      
+      if (_check_bit(c, BCD_FLAG)) {
+        /* BCD (Decimal) Mode */
+        int lo_nibble = (c->a & 0x0F) + (b & 0x0F) + carry_in;
+        int hi_nibble = (c->a >> 4) + (b >> 4);
+        int binary_result = c->a + b + carry_in;
+        
+        /* Adjust low nibble if > 9 */
+        if (lo_nibble > 9) {
+          lo_nibble += 6;    /* Add 6 to convert to BCD */
+          hi_nibble++;       /* Carry to high nibble */
+        }
+        
+        /* Adjust high nibble if > 9 */
+        if (hi_nibble > 9) {
+          hi_nibble += 6;    /* Add 6 to convert to BCD */
+          _set_bit(c, CARRY_FLAG);  /* Set carry out */
+        } else {
+          _clear_bit(c, CARRY_FLAG);
+        }
+        
+        c->a = ((hi_nibble & 0x0F) << 4) | (lo_nibble & 0x0F);
+        
+        /* In BCD mode, N and Z flags reflect the binary result on 6502 */
+        _set_zero_flag(c, binary_result & 0xFF);
+        _set_negative_flag(c, binary_result);
+        
+        /* Overflow flag behavior in BCD is complex - simplified here */
+        _clear_bit(c, OVERFLOW_FLAG);
+        
+      } else {
+        /* Binary Mode */
+        int result = c->a + b + carry_in;
+        
+        /* Set carry flag if result > 255 (unsigned overflow) */
+        if (result > 0xFF) {
+          _set_bit(c, CARRY_FLAG);
+        } else {
+          _clear_bit(c, CARRY_FLAG);
+        }
+        
+        /* Set overflow flag if signed overflow occurred */
+        /* Overflow happens when: (+) + (+) = (-) or (-) + (-) = (+) */
+        if (((c->a ^ result) & (b ^ result) & 0x80) != 0) {
+          _set_bit(c, OVERFLOW_FLAG);
+        } else {
+          _clear_bit(c, OVERFLOW_FLAG);
+        }
+        
+        c->a = result & 0xFF;
+        _set_zero_flag(c, c->a);
+        _set_negative_flag(c, c->a);
+      }
     }
-    if (c->a < temp) {
-      _set_bit(c, CARRY_FLAG);
-      _set_bit(c, OVERFLOW_FLAG);
-    } else {
-      _clear_bit(c, CARRY_FLAG);
-      _clear_bit(c, OVERFLOW_FLAG);
-    }
-    _set_zero_flag(c, c->a);
-    _set_negative_flag(c, c->a);
     break;
   case I_AND:
     /* and */
@@ -413,37 +455,43 @@ void cpu_step(cpu *c) {
     break;
   case I_CMP:
     /* compare memory to A */
-    temp = c->a;
-    temp = temp - b;
-    if (temp > c->a) {
+    temp = c->a - b;
+    
+    /* Set carry if A >= operand (no borrow needed) */
+    if (c->a >= b) {
       _set_bit(c, CARRY_FLAG);
     } else {
       _clear_bit(c, CARRY_FLAG);
     }
+    
     _set_zero_flag(c, temp);
     _set_negative_flag(c, temp);
     break;
   case I_CPX:
     /* compare memory to X */
-    temp = c->x;
-    temp = temp - b;
-    if (temp > c->x) {
+    temp = c->x - b;
+    
+    /* Set carry if X >= operand (no borrow needed) */
+    if (c->x >= b) {
       _set_bit(c, CARRY_FLAG);
     } else {
       _clear_bit(c, CARRY_FLAG);
     }
+    
     _set_zero_flag(c, temp);
     _set_negative_flag(c, temp);
     break;
   case I_CPY:
     /* compare memory to Y */
-    temp = c->y;
-    temp = temp - b;
-    if (temp > c->y) {
+    temp = c->y - b;
+    
+    /* Set carry if Y >= operand (no borrow needed) */
+    if (c->y >= b) {
       _set_bit(c, CARRY_FLAG);
     } else {
       _clear_bit(c, CARRY_FLAG);
     }
+    
     _set_zero_flag(c, temp);
     _set_negative_flag(c, temp);
     break;
@@ -574,16 +622,22 @@ void cpu_step(cpu *c) {
     break;
   case I_ROL:
     /* rotate one bit left */
-    temp = b & (1<<7);
-    b = b << 1;
-    if (temp) {
+    temp = b & (1<<7);        /* Save bit 7 */
+    b = b << 1;               /* Shift left */
+    if (_check_bit(c, CARRY_FLAG)) {  /* Rotate carry into bit 0 */
       b = b | 1;
+    }
+    
+    /* Set new carry from old bit 7 */
+    if (temp) {
       _set_bit(c, CARRY_FLAG);
     } else {
       _clear_bit(c, CARRY_FLAG);
     }
-    _set_zero_flag(c, b);
-    _set_negative_flag(c, b);
+    
+    c->a = b;  /* Store result back to accumulator */
+    _set_zero_flag(c, c->a);
+    _set_negative_flag(c, c->a);
     break;
   case I_ROR:
     /* rotate one bit right */
@@ -628,20 +682,62 @@ void cpu_step(cpu *c) {
     break;
   case I_SBC:
     /* subtract memory from A with borrow */
-    temp = c->a;
-    c->a = c->a - b;
-    if (_check_bit(c, CARRY_FLAG)) {
-      c->a--;
+    {
+      int borrow = 1 - (_check_bit(c, CARRY_FLAG) ? 1 : 0);
+      
+      if (_check_bit(c, BCD_FLAG)) {
+        /* BCD (Decimal) Mode */
+        int lo_nibble = (c->a & 0x0F) - (b & 0x0F) - borrow;
+        int hi_nibble = (c->a >> 4) - (b >> 4);
+        int binary_result = c->a - b - borrow;
+        
+        /* Adjust low nibble if < 0 (borrow from high nibble) */
+        if (lo_nibble < 0) {
+          lo_nibble += 10;   /* Add 10 for decimal borrow */
+          hi_nibble--;       /* Borrow from high nibble */
+        }
+        
+        /* Adjust high nibble if < 0 */
+        if (hi_nibble < 0) {
+          hi_nibble += 10;   /* Add 10 for decimal borrow */
+          _clear_bit(c, CARRY_FLAG);  /* Set borrow flag */
+        } else {
+          _set_bit(c, CARRY_FLAG);    /* No borrow occurred */
+        }
+        
+        c->a = ((hi_nibble & 0x0F) << 4) | (lo_nibble & 0x0F);
+        
+        /* In BCD mode, N and Z flags reflect the binary result on 6502 */
+        _set_zero_flag(c, binary_result & 0xFF);
+        _set_negative_flag(c, binary_result);
+        
+        /* Overflow flag behavior in BCD is complex - simplified here */
+        _clear_bit(c, OVERFLOW_FLAG);
+        
+      } else {
+        /* Binary Mode */
+        int result = c->a - b - borrow;
+        
+        /* Set carry flag if NO borrow occurred (result >= 0) */
+        if (result >= 0) {
+          _set_bit(c, CARRY_FLAG);
+        } else {
+          _clear_bit(c, CARRY_FLAG);
+        }
+        
+        /* Set overflow flag if signed overflow occurred */
+        /* Overflow in subtraction: (+) - (-) = (-) or (-) - (+) = (+) */
+        if (((c->a ^ b) & (c->a ^ result) & 0x80) != 0) {
+          _set_bit(c, OVERFLOW_FLAG);
+        } else {
+          _clear_bit(c, OVERFLOW_FLAG);
+        }
+        
+        c->a = result & 0xFF;
+        _set_zero_flag(c, c->a);
+        _set_negative_flag(c, c->a);
+      }
     }
-    if (c->a > temp) {
-      _set_bit(c, CARRY_FLAG);
-      _set_bit(c, OVERFLOW_FLAG);
-    } else {
-      _clear_bit(c, CARRY_FLAG);
-      _clear_bit(c, OVERFLOW_FLAG);
-    }
-    _set_zero_flag(c, c->a);
-    _set_negative_flag(c, c->a);
     break;
   case I_SEC:
     /* set carry flag */
