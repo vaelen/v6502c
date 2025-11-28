@@ -74,9 +74,9 @@ NMI always has priority over IRQ. Software can trigger interrupts via the BRK in
 ### ✅ **Implemented:**
 - **Complete 6502 instruction set** - All basic instructions work correctly
 - **BCD Mode** - Full Binary Coded Decimal support for ADC/SBC operations
-- **CPU Variants** - Support for both original 6502 and 65C02 BCD flag behavior
+- **CPU Variants** - Support for both original 6502 and 65C02 BCD flag behavior (65C02 is default)
 - **Interrupts** - Full IRQ, NMI, and BRK support with proper stack frame handling
-- **Comprehensive test suite** - 29 test cases covering all instruction types including interrupts
+- **Comprehensive test suite** - 32 test cases covering all instruction types including interrupts
 
 ### **BCD Mode Implementation:**
 - **ADC BCD**: Proper decimal adjustment with nibble overflow handling

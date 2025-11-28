@@ -150,7 +150,7 @@ void cpu_init(cpu *c) {
   c->write = NULL;
   c->read = NULL;
   c->tick = NULL;
-  c->variant = CPU_6502;  /* Default to original 6502 */
+  c->variant = CPU_65C02;  /* Default to 65C02 */
   _reset(c);
 }
 
@@ -259,21 +259,35 @@ void cpu_step(cpu *c) {
   case A_IND:
     /* indirect */
     /* Only used for JMP, result is an address */
+    /*
+     * Note: The NMOS 6502 has a bug where JMP ($xxFF) wraps within the
+     * same page when reading the high byte (e.g., JMP ($10FF) reads the
+     * low byte from $10FF but the high byte from $1000, not $1100).
+     * This implementation uses 65C02 behavior which correctly crosses
+     * page boundaries. This is intentional as few programs rely on
+     * the bug and the correct behavior is more useful.
+     */
     a = cpu_next_address(c);
     a = cpu_read_address(c, a);
     break;
   case A_INX:
-    /* pre-indexed indirect */
-    a = (address) cpu_next_byte(c) + c->x;
-    a = cpu_read_address(c, a);
+    /* pre-indexed indirect - wraps within zero page */
+    a = ((address) cpu_next_byte(c) + c->x) & 0xFF;
+    /* Read pointer from zero page (may wrap at page boundary) */
+    lo = cpu_read_byte(c, a);
+    hi = cpu_read_byte(c, (a + 1) & 0xFF);
+    a = (hi << 8) | lo;
     if (!_is_store(instruction)) {
       b = cpu_read_byte(c, a);
     }
     break;
   case A_INY:
-    /* post-indexed indirect */
+    /* post-indexed indirect - pointer wraps within zero page */
     a = (address) cpu_next_byte(c);
-    a = cpu_read_address(c, a) + c->y;
+    /* Read pointer from zero page (may wrap at page boundary) */
+    lo = cpu_read_byte(c, a);
+    hi = cpu_read_byte(c, (a + 1) & 0xFF);
+    a = ((hi << 8) | lo) + c->y;
     if (!_is_store(instruction)) {
       b = cpu_read_byte(c, a);
     }
@@ -292,15 +306,15 @@ void cpu_step(cpu *c) {
     }
     break;
   case A_ZPX:
-    /* zero-page x-indexed */
-    a = (address) cpu_next_byte(c) + c->x;
+    /* zero-page x-indexed - wraps within zero page */
+    a = ((address) cpu_next_byte(c) + c->x) & 0xFF;
     if (!_is_store(instruction)) {
       b = cpu_read_byte(c, a);
     }
     break;
   case A_ZPY:
-    /* zero-page y-indexed */
-    a = (address) cpu_next_byte(c) + c->y;
+    /* zero-page y-indexed - wraps within zero page */
+    a = ((address) cpu_next_byte(c) + c->y) & 0xFF;
     if (!_is_store(instruction)) {
       b = cpu_read_byte(c, a);
     }
@@ -408,14 +422,19 @@ void cpu_step(cpu *c) {
     break;
   case I_ASL:
     /* arithmetic shift left */
-    if (c->a & (1<<7)) {
+    if (b & (1<<7)) {
       _set_bit(c, CARRY_FLAG);
     } else {
       _clear_bit(c, CARRY_FLAG);
     }
-    c->a = b << 1;
-    _set_zero_flag(c, c->a);
-    _set_negative_flag(c, c->a);
+    b = b << 1;
+    if (addressing == A_ACC) {
+      c->a = b;
+    } else {
+      cpu_write_byte(c, a, b);
+    }
+    _set_zero_flag(c, b);
+    _set_negative_flag(c, b);
     break;
   case I_BCC:
     /* branch on carry clear */
@@ -621,14 +640,19 @@ void cpu_step(cpu *c) {
     break;
   case I_LSR:
     /* shift one bit right */
-    if (c->a & 1) {
+    if (b & 1) {
       _set_bit(c, CARRY_FLAG);
     } else {
       _clear_bit(c, CARRY_FLAG);
     }
-    c->a = b >> 1;
-    _set_zero_flag(c, c->a);
-    _set_negative_flag(c, c->a);
+    b = b >> 1;
+    if (addressing == A_ACC) {
+      c->a = b;
+    } else {
+      cpu_write_byte(c, a, b);
+    }
+    _set_zero_flag(c, b);
+    _set_negative_flag(c, b);
     break;
   case I_ORA:
     /* or */
@@ -653,6 +677,8 @@ void cpu_step(cpu *c) {
   case I_PLA:
     /* pull A */
     c->a = _pop(c);
+    _set_zero_flag(c, c->a);
+    _set_negative_flag(c, c->a);
     break;
   case I_PLP:
     /* pull processor status from stack */
@@ -677,27 +703,41 @@ void cpu_step(cpu *c) {
     if (_check_bit(c, CARRY_FLAG)) {  /* Rotate carry into bit 0 */
       b = b | 1;
     }
-    
+
     /* Set new carry from old bit 7 */
     if (temp) {
       _set_bit(c, CARRY_FLAG);
     } else {
       _clear_bit(c, CARRY_FLAG);
     }
-    
-    c->a = b;  /* Store result back to accumulator */
-    _set_zero_flag(c, c->a);
-    _set_negative_flag(c, c->a);
+
+    if (addressing == A_ACC) {
+      c->a = b;
+    } else {
+      cpu_write_byte(c, a, b);
+    }
+    _set_zero_flag(c, b);
+    _set_negative_flag(c, b);
     break;
   case I_ROR:
     /* rotate one bit right */
-    temp = b & 1;
-    b = b >> 1;
-    if (temp) {
+    temp = b & 1;             /* Save bit 0 for new carry */
+    b = b >> 1;               /* Shift right */
+    if (_check_bit(c, CARRY_FLAG)) {  /* Rotate old carry into bit 7 */
       b = b | (1<<7);
+    }
+
+    /* Set new carry from old bit 0 */
+    if (temp) {
       _set_bit(c, CARRY_FLAG);
     } else {
       _clear_bit(c, CARRY_FLAG);
+    }
+
+    if (addressing == A_ACC) {
+      c->a = b;
+    } else {
+      cpu_write_byte(c, a, b);
     }
     _set_zero_flag(c, b);
     _set_negative_flag(c, b);

@@ -931,6 +931,208 @@ void test_interrupt_priority(void) {
     pass("Interrupt priority");
 }
 
+/* Shift/Rotate Memory Mode Tests */
+void test_shift_rotate_memory(void) {
+    test_reset_cpu();
+
+    /* Test ASL with zero-page addressing */
+    test_memory[0x0050] = 0x81; /* Value to shift: 10000001 */
+    test_memory[0x0200] = 0x06; /* ASL $50 */
+    test_memory[0x0201] = 0x50;
+    test_cpu.sr &= ~(1 << 0); /* Clear carry */
+
+    cpu_step(&test_cpu);
+
+    /* Result should be 0x02 (00000010), carry should be set from bit 7 */
+    if (test_memory[0x0050] != 0x02) {
+        fail("ASL memory mode", "Memory should contain shifted value 0x02");
+        return;
+    }
+    if (!check_flag(0)) { /* CARRY_FLAG */
+        fail("ASL memory mode", "Carry flag should be set");
+        return;
+    }
+
+    /* Test LSR with zero-page addressing */
+    test_reset_cpu();
+    test_memory[0x0050] = 0x81; /* Value to shift: 10000001 */
+    test_memory[0x0200] = 0x46; /* LSR $50 */
+    test_memory[0x0201] = 0x50;
+    test_cpu.sr &= ~(1 << 0); /* Clear carry */
+
+    cpu_step(&test_cpu);
+
+    /* Result should be 0x40 (01000000), carry should be set from bit 0 */
+    if (test_memory[0x0050] != 0x40) {
+        fail("LSR memory mode", "Memory should contain shifted value 0x40");
+        return;
+    }
+    if (!check_flag(0)) {
+        fail("LSR memory mode", "Carry flag should be set");
+        return;
+    }
+
+    /* Test ROL with zero-page addressing */
+    test_reset_cpu();
+    test_memory[0x0050] = 0x81; /* Value to rotate: 10000001 */
+    test_memory[0x0200] = 0x26; /* ROL $50 */
+    test_memory[0x0201] = 0x50;
+    test_cpu.sr |= (1 << 0); /* Set carry - will rotate into bit 0 */
+
+    cpu_step(&test_cpu);
+
+    /* Result should be 0x03 (00000011), carry should be set from old bit 7 */
+    if (test_memory[0x0050] != 0x03) {
+        fail("ROL memory mode", "Memory should contain rotated value 0x03");
+        return;
+    }
+    if (!check_flag(0)) {
+        fail("ROL memory mode", "Carry flag should be set");
+        return;
+    }
+
+    /* Test ROR with zero-page addressing */
+    test_reset_cpu();
+    test_memory[0x0050] = 0x81; /* Value to rotate: 10000001 */
+    test_memory[0x0200] = 0x66; /* ROR $50 */
+    test_memory[0x0201] = 0x50;
+    test_cpu.sr |= (1 << 0); /* Set carry - will rotate into bit 7 */
+
+    cpu_step(&test_cpu);
+
+    /* Result should be 0xC0 (11000000), carry should be set from old bit 0 */
+    if (test_memory[0x0050] != 0xC0) {
+        fail("ROR memory mode", "Memory should contain rotated value 0xC0");
+        return;
+    }
+    if (!check_flag(0)) {
+        fail("ROR memory mode", "Carry flag should be set");
+        return;
+    }
+
+    pass("Shift/rotate memory mode");
+}
+
+/* Zero-Page Wrapping Tests */
+void test_zero_page_wrapping(void) {
+    test_reset_cpu();
+
+    /* Test ZPX wrapping: LDA $FF,X with X=2 should read from $01, not $101 */
+    test_memory[0x0001] = 0x42; /* Value at wrapped address */
+    test_memory[0x0101] = 0x99; /* Value at non-wrapped address (should NOT be read) */
+    test_memory[0x0200] = 0xB5; /* LDA $FF,X */
+    test_memory[0x0201] = 0xFF;
+    test_cpu.x = 0x02;
+
+    cpu_step(&test_cpu);
+
+    if (test_cpu.a != 0x42) {
+        fail("Zero-page X wrapping", "LDA $FF,X with X=2 should wrap to $01");
+        return;
+    }
+
+    /* Test ZPY wrapping: LDX $FF,Y with Y=3 should read from $02, not $102 */
+    test_reset_cpu();
+    test_memory[0x0002] = 0x37;
+    test_memory[0x0102] = 0x88;
+    test_memory[0x0200] = 0xB6; /* LDX $FF,Y */
+    test_memory[0x0201] = 0xFF;
+    test_cpu.y = 0x03;
+
+    cpu_step(&test_cpu);
+
+    if (test_cpu.x != 0x37) {
+        fail("Zero-page Y wrapping", "LDX $FF,Y with Y=3 should wrap to $02");
+        return;
+    }
+
+    /* Test INX wrapping: LDA ($FF,X) with X=1 should read pointer from $00,$01 */
+    test_reset_cpu();
+    test_memory[0x0000] = 0x00; /* Low byte of pointer (at wrapped address) */
+    test_memory[0x0001] = 0x03; /* High byte of pointer */
+    test_memory[0x0300] = 0x55; /* Value at target address */
+    test_memory[0x0200] = 0xA1; /* LDA ($FF,X) */
+    test_memory[0x0201] = 0xFF;
+    test_cpu.x = 0x01;
+
+    cpu_step(&test_cpu);
+
+    if (test_cpu.a != 0x55) {
+        fail("Pre-indexed indirect wrapping", "LDA ($FF,X) with X=1 should wrap pointer read");
+        return;
+    }
+
+    /* Test INY pointer wrapping: LDA ($FF),Y with pointer at $FF should read hi from $00 */
+    test_reset_cpu();
+    test_memory[0x00FF] = 0x00; /* Low byte of pointer */
+    test_memory[0x0000] = 0x04; /* High byte at wrapped address $00 */
+    test_memory[0x0400] = 0x77; /* Value at target address */
+    test_memory[0x0200] = 0xB1; /* LDA ($FF),Y */
+    test_memory[0x0201] = 0xFF;
+    test_cpu.y = 0x00;
+
+    cpu_step(&test_cpu);
+
+    if (test_cpu.a != 0x77) {
+        fail("Post-indexed indirect wrapping", "LDA ($FF),Y pointer hi byte should wrap to $00");
+        return;
+    }
+
+    pass("Zero-page wrapping");
+}
+
+/* PLA Flag Tests */
+void test_pla_flags(void) {
+    test_reset_cpu();
+
+    /* Test PLA sets zero flag */
+    test_cpu.sp = 0xFC;
+    test_memory[0x01FD] = 0x00; /* Zero value on stack */
+    test_memory[0x0200] = 0x68; /* PLA */
+    test_cpu.sr &= ~(1 << 1); /* Clear zero flag */
+    test_cpu.sr |= (1 << 7);  /* Set negative flag */
+
+    cpu_step(&test_cpu);
+
+    if (test_cpu.a != 0x00) {
+        fail("PLA flags", "A should be 0");
+        return;
+    }
+    if (!check_flag(1)) { /* ZERO_FLAG */
+        fail("PLA flags", "Zero flag should be set");
+        return;
+    }
+    if (check_flag(7)) { /* NEGATIVE_FLAG */
+        fail("PLA flags", "Negative flag should be clear");
+        return;
+    }
+
+    /* Test PLA sets negative flag */
+    test_reset_cpu();
+    test_cpu.sp = 0xFC;
+    test_memory[0x01FD] = 0x80; /* Negative value on stack */
+    test_memory[0x0200] = 0x68; /* PLA */
+    test_cpu.sr |= (1 << 1);  /* Set zero flag */
+    test_cpu.sr &= ~(1 << 7); /* Clear negative flag */
+
+    cpu_step(&test_cpu);
+
+    if (test_cpu.a != 0x80) {
+        fail("PLA flags", "A should be 0x80");
+        return;
+    }
+    if (check_flag(1)) {
+        fail("PLA flags", "Zero flag should be clear");
+        return;
+    }
+    if (!check_flag(7)) {
+        fail("PLA flags", "Negative flag should be set");
+        return;
+    }
+
+    pass("PLA flags");
+}
+
 /* Main test runner */
 int main(void) {
     printf("6502 Emulator Test Suite\n");
@@ -968,6 +1170,9 @@ int main(void) {
     test_nmi();
     test_irq_masking();
     test_interrupt_priority();
+    test_shift_rotate_memory();
+    test_zero_page_wrapping();
+    test_pla_flags();
 
     test_cleanup();
     
