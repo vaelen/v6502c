@@ -1,5 +1,5 @@
-#ifndef _MAIN_H_
-#define _MAIN_H_
+#ifndef _VTYPES_H_
+#define _VTYPES_H_
 
 /**
  * Copyright (c) 2025 Andrew C. Young
@@ -26,36 +26,21 @@
  *
  */
 
-#include <stdio.h>
-#include <string.h>
+typedef unsigned char byte;
+typedef unsigned short int address;
 
-#include <v6502.h>
-#include <addrlist.h>
+typedef char bool;
 
-void tick(void);
-
-int read_line(FILE *in, char *buf, int maxlen);
-void print_register(char *name, byte value);
-void print_register_change(char *name, byte old, byte new);
-void print_pc(address value);
-void print_pc_change(address old, address new);
-void print_memory_header(void);
-void print_memory_location(address a);
-void print_memory(cpu *c, address start, address end);
-void print_help(void);
-void not_implemented(void);
-int is_whitespace(char c);
-void parseargs(char *cmdbuf, int *argc, char **argv);
-int parse_byte(char *s, byte *b);
-int parse_address(char *s, address *a);
-int parse_address_range(char *s, address_range *r);
-void read_lines(cpu *c, FILE *in);
-int write_file(cpu *c, address_range ar, char *filename);
-int read_file(cpu *c, char *filename);
-int parse_command(cpu *c, char *cmdbuf);
-
-void add_protected_range(address_range ar);
-void remove_protected_range(address_range ar);
-bool is_address_protected(address_range_list *list, address a);
-
+#ifndef TRUE
+#define TRUE 1
 #endif
+
+#ifndef FALSE
+#define FALSE 0
+#endif
+
+#ifndef NULL
+#define NULL 0
+#endif
+
+#endif /* _VTYPES_H_ */

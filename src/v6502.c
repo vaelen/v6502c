@@ -26,6 +26,8 @@
 #include "v6502.h"
 #include "inst.h"
 
+bool V6502C_TRACE = FALSE;
+
 #define CARRY_FLAG 0
 #define ZERO_FLAG 1
 #define IRQ_DISABLE 2

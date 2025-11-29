@@ -1,0 +1,11 @@
+; V6502C BASIC startup script
+; This file is loaded by the emulator on startup
+
+; First, load the BASIC ROM
+LOAD rom/basic.woz
+
+; Dump memory
+0000.FFFF
+
+; Exit
+QUIT

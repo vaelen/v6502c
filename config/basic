@@ -5,4 +5,4 @@
 LOAD rom/basic.woz
 
 ; Start execution at COLD_START
-GO F01A
+GO F01B

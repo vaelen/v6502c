@@ -26,14 +26,16 @@
  *
  */
 
+#include "vtypes.h"
+
 #define V6502C_VERSION "v6502c v1.0"
 #define V6502C_COPYRIGHT "Copyright (c) 2025, Andrew C. Young <andrew@vaelen.org>"
+
+extern bool V6502C_TRACE;
+
 #define IRQ_VECTOR 0xFFFE
 #define RESET_VECTOR 0xFFFC
 #define NMI_VECTOR 0xFFFA
-
-typedef unsigned char byte;
-typedef unsigned short int address;
 
 /**
  * The ReadFn and WriteFn types are used to interact with memory
@@ -42,19 +44,7 @@ typedef unsigned short int address;
  * to emulate hardware peripherals or memory banking.
  **/
 
-typedef char bool;
 
-#ifndef TRUE
-#define TRUE 1
-#endif
-
-#ifndef FALSE
-#define FALSE 0
-#endif
-
-#ifndef NULL
-#define NULL 0
-#endif
 
 /** Read a byte from the given emulated memory address. */
 typedef byte ReadFn(address);

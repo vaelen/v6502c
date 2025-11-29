@@ -1,5 +1,5 @@
-#ifndef _MAIN_H_
-#define _MAIN_H_
+#ifndef _ADDRLIST_H_
+#define _ADDRLIST_H_
 
 /**
  * Copyright (c) 2025 Andrew C. Young
@@ -27,35 +27,36 @@
  */
 
 #include <stdio.h>
-#include <string.h>
+#include <stdlib.h>
+#include "vtypes.h"
 
-#include <v6502.h>
-#include <addrlist.h>
+typedef struct addrr {
+  address start;
+  address end;
+} address_range;
 
-void tick(void);
+typedef struct addrrnode {
+  address_range range;
+  struct addrrnode *next;
+  struct addrrnode *prev;
+} address_range_node;
 
-int read_line(FILE *in, char *buf, int maxlen);
-void print_register(char *name, byte value);
-void print_register_change(char *name, byte old, byte new);
-void print_pc(address value);
-void print_pc_change(address old, address new);
-void print_memory_header(void);
-void print_memory_location(address a);
-void print_memory(cpu *c, address start, address end);
-void print_help(void);
-void not_implemented(void);
-int is_whitespace(char c);
-void parseargs(char *cmdbuf, int *argc, char **argv);
-int parse_byte(char *s, byte *b);
-int parse_address(char *s, address *a);
-int parse_address_range(char *s, address_range *r);
-void read_lines(cpu *c, FILE *in);
-int write_file(cpu *c, address_range ar, char *filename);
-int read_file(cpu *c, char *filename);
-int parse_command(cpu *c, char *cmdbuf);
+/**
+ * A list of address ranges.
+ * The list is implemented as a doubly-linked list.
+ * The list is kept sorted by start address.
+ * Ranges may not overlap.
+ */
+typedef struct addrrlist {
+  address_range_node *first;
+  address_range_node *last;
+} address_range_list;
 
-void add_protected_range(address_range ar);
-void remove_protected_range(address_range ar);
-bool is_address_protected(address_range_list *list, address a);
+void init_address_range_list(address_range_list *list);
+void add_address_range(address_range_list *list, address_range ar);
+void remove_address_range(address_range_list *list, address_range ar);
+bool is_address_in_range(address_range ar, address a);
+bool is_address_in_range_list(address_range_list *list, address a);
+void clear_address_range_list(address_range_list *list);
 
-#endif
+#endif /* _ADDRLIST_H_ */

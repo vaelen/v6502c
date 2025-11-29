@@ -31,8 +31,6 @@
 #include <fcntl.h>
 #include <sys/select.h>
 
-extern bool V6502C_TRACE;
-
 /*
  * Helper: Check if input is available on a FILE* without blocking
  *
