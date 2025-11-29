@@ -28,7 +28,16 @@
 
 #include <signal.h>
 #include <unistd.h>
-#include <ctype.h>
+#include <ctype.h> 
+
+#ifdef __unix__
+#include <termios.h>
+#include <unistd.h>
+#endif
+
+#ifdef __unix__
+  struct termios orig_termios, raw_termios;
+#endif
 
 static byte mem[0x10000];
 static address_range_list protected_ranges;
@@ -493,7 +502,17 @@ int parse_command(cpu *c, char *cmdbuf) {
         printf("Invalid address: %s\n", argv[1]);
       }
     } else {
+#ifdef __unix__
+      /* Switch terminal to raw mode */
+      printf("Switching terminal to raw mode\n");
+      tcsetattr(STDIN_FILENO, TCSANOW, &raw_termios);
+#endif
       cpu_run(c);
+#ifdef __unix__
+      /* Switch terminal back to its default mode */
+      printf("Switching terminal back to default mode\n");
+      tcsetattr(STDIN_FILENO, TCSANOW, &orig_termios);
+#endif
     }
   } else if (!strcmp("V", cmd) || !strcmp("VERBOSE", cmd)) {
     V6502C_VERBOSE = !V6502C_VERBOSE;
@@ -703,6 +722,21 @@ int parse_command(cpu *c, char *cmdbuf) {
 
 int main(int argc, char** argv) {
   int i;
+
+#ifdef __unix__
+  /* Create a terminal configuration that switches to raw mode for immediate character input */
+  tcgetattr(STDIN_FILENO, &orig_termios);
+  raw_termios = orig_termios;
+  raw_termios.c_lflag &= ~(ICANON | ECHO);  /* Disable canonical mode and echo */
+  raw_termios.c_cc[VMIN] = 1;   /* Read returns after 1 byte */
+  raw_termios.c_cc[VTIME] = 0;  /* No timeout */
+  /* Enable NL to NLCR mapping and vice versa */
+  raw_termios.c_iflag &= ~ICRNL;
+  raw_termios.c_oflag &= ~OCRNL;
+  raw_termios.c_oflag |= (OPOST | ONLCR);
+
+  setvbuf(stdout, NULL, _IONBF, 0);
+#endif
 
   /* Initialize protected address ranges */
   init_address_range_list(&protected_ranges);

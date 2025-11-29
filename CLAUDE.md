@@ -93,3 +93,7 @@ NMI always has priority over IRQ. Software can trigger interrupts via the BRK in
 - ANSI C only (no C99+ features)
 - Minimize standard library dependencies for portability to classic systems
 - Not cycle-accurate by design
+
+## msbasic Directory
+
+The `msbasic/` directory contains a port of Microsoft BASIC. Only files in `msbasic/versions/` should be modified. The other source files are shared by multiple BASIC versions and should not be edited.

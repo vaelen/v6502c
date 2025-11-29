@@ -105,11 +105,6 @@ byte acia_read(acia_t *dev, byte reg) {
             int fd = fileno(dev->input);
             if (read(fd, &ch, 1) == 1) {
                 c = (unsigned char)ch;
-                /* Convert LF to CR for BASIC compatibility */
-                /* Unix terminals send LF ($0A) but BASIC expects CR ($0D) */
-                if (c == '\n') {
-                    c = '\r';
-                }
                 dev->rx_data = (byte)c;
                 if (V6502C_VERBOSE) {
                     fprintf(stderr, "[RX: %02X '%c']\n", dev->rx_data,

@@ -1,0 +1,17 @@
+; V6502C BASIC startup script
+; This file is loaded by the emulator on startup
+
+; First, load the BASIC ROM
+LOAD rom/iotest.woz
+
+FFFE: 00 D0
+
+PROTECT C000.C000
+PROTECT D000.FFFF
+
+; VERBOSE
+
+; Start execution at COLD_START
+RESET
+
+GO

@@ -60,6 +60,9 @@ infloop: src/infloop.woz
 src/infloop.woz: src/infloop.s
 	${VASM} -Fwoz -dotdir -o src/infloop.woz src/infloop.s
 
+rom/iotest.woz: programs/iotest.s
+	${VASM} -Fwoz -dotdir -o rom/iotest.woz programs/iotest.s
+
 bin:
 	mkdir -p bin
 
