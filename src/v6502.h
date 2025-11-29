@@ -32,6 +32,7 @@
 #define V6502C_COPYRIGHT "Copyright (c) 2025, Andrew C. Young <andrew@vaelen.org>"
 
 extern bool V6502C_TRACE;
+extern bool V6502C_VERBOSE;
 
 #define IRQ_VECTOR 0xFFFE
 #define RESET_VECTOR 0xFFFC

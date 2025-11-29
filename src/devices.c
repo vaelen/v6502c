@@ -111,7 +111,7 @@ byte acia_read(acia_t *dev, byte reg) {
                     c = '\r';
                 }
                 dev->rx_data = (byte)c;
-                if (V6502C_TRACE) {
+                if (V6502C_VERBOSE) {
                     fprintf(stderr, "[RX: %02X '%c']\n", dev->rx_data,
                         (dev->rx_data >= 32 && dev->rx_data < 127) ? dev->rx_data : '.');
                 }
@@ -150,7 +150,7 @@ void acia_write(acia_t *dev, byte reg, byte value) {
     case ACIA_REG_DATA:
         /* Transmit data */
         if (dev->output != NULL) {
-            if (V6502C_TRACE) {
+            if (V6502C_VERBOSE) {
                 fprintf(stderr, "[TX: %02X '%c']\n", value,
                     (value >= 32 && value < 127) ? value : '.');
             }

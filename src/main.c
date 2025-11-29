@@ -113,7 +113,7 @@ void _write(address a, byte b) {
   }
   if (is_address_protected(&protected_ranges, a)) {
     /* Address is write-protected */
-    if (V6502C_TRACE) {
+    if (V6502C_VERBOSE) {
       fprintf(stderr, "Write to protected address %04X ignored\n", a);
     }
     return;
@@ -211,6 +211,7 @@ void print_help(void) {
   puts("  S | STEP         - step");
   puts("  G | GO [10F0]    - start execution [at address 10F0 if provided]");
   puts("  T | TRACE [10F0] - start execution and print all changes to CPU state");
+  puts("  V | VERBOSE      - toggle verbose output");
   puts("  Q | QUIT         - quit");
   puts("");
   puts("Working with Registers:");
@@ -343,11 +344,13 @@ int parse_address_range(char *s, address_range *r) {
 
 /** Add a protected memory range where writes are ignored. */
 void add_protected_range(address_range ar) {
+  printf("Protecting memory range %04X.%04X\n", ar.start, ar.end);
   add_address_range(&protected_ranges, ar);
 }
 
 /** Remove a protected memory range, allowing writes. */
 void remove_protected_range(address_range ar) {
+  printf("Unprotecting memory range %04X.%04X\n", ar.start, ar.end);
   remove_address_range(&protected_ranges, ar);
 }
 
@@ -492,6 +495,9 @@ int parse_command(cpu *c, char *cmdbuf) {
     } else {
       cpu_run(c);
     }
+  } else if (!strcmp("V", cmd) || !strcmp("VERBOSE", cmd)) {
+    V6502C_VERBOSE = !V6502C_VERBOSE;
+    printf("Verbose output %s\n", V6502C_VERBOSE ? "enabled" : "disabled");
   } else if (!strcmp("?", cmd)) {
     print_pc(c->pc);
     print_register(" A", c->a);

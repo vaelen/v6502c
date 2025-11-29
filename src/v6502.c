@@ -27,6 +27,7 @@
 #include "inst.h"
 
 bool V6502C_TRACE = FALSE;
+bool V6502C_VERBOSE = FALSE;
 
 #define CARRY_FLAG 0
 #define ZERO_FLAG 1
