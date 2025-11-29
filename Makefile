@@ -4,15 +4,21 @@ CCOPTS = -ansi -Wpedantic -Isrc
 # This should be the 6502 oldstyle version of vasm.
 VASM = vasm6502
 
-all: v6502c hello test bin2woz
+all: v6502c hello bin2woz
 
 v6502c: bin/v6502c
 
 hello: bin/hello
 
-test: bin/test
-
 bin2woz: bin/bin2woz
+
+cputest: bin/cputest
+
+devtest: bin/devtest
+
+test: bin/cputest bin/devtest
+	./bin/cputest
+	./bin/devtest
 
 bin/v6502c: bin obj obj/v6502.o obj/devices.o src/main.c src/main.h
 	${CC} ${CCOPTS} obj/v6502.o obj/devices.o src/main.c -o bin/v6502c
@@ -26,8 +32,11 @@ obj/devices.o: obj src/devices.h src/devices.c src/v6502.h
 bin/hello: bin obj obj/v6502.o src/hello.c src/hello.h
 	${CC} ${CCOPTS} obj/v6502.o src/hello.c -o bin/hello
 
-bin/test: bin obj obj/v6502.o src/test.c src/test.h
-	${CC} ${CCOPTS} obj/v6502.o src/test.c -o bin/test
+bin/cputest: bin obj obj/v6502.o src/cputest.c src/cputest.h
+	${CC} ${CCOPTS} obj/v6502.o src/cputest.c -o bin/cputest
+
+bin/devtest: bin obj obj/v6502.o obj/devices.o src/devtest.c src/devices.h
+	${CC} ${CCOPTS} obj/v6502.o obj/devices.o src/devtest.c -o bin/devtest
 
 bin/bin2woz: bin src/bin2woz.c
 	${CC} ${CCOPTS} src/bin2woz.c -o bin/bin2woz

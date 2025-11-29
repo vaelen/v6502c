@@ -378,6 +378,7 @@ fileio_t *fileio_create(void) {
     fileio_t *dev = (fileio_t *)malloc(sizeof(fileio_t));
     if (dev == NULL) return NULL;
 
+    dev->file = NULL;  /* Must initialize before reset checks it */
     fileio_reset(dev);
 
     return dev;

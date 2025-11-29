@@ -144,7 +144,7 @@ $ ./bin/v6502c rom/basic.v6502c
 Or manually load and start BASIC:
 ```
 $ ./bin/v6502c
-=> LOAD rom/v6502c.woz
+=> LOAD rom/basic.woz
 => F01A R
 ```
 
@@ -179,7 +179,7 @@ This produces:
 
 To convert to Wozmon format:
 ```
-$ ./bin/bin2woz D000 msbasic/tmp/v6502c.bin > rom/v6502c.woz
+$ ./bin/bin2woz D000 msbasic/tmp/v6502c.bin > rom/basic.woz
 ```
 
 ## Details

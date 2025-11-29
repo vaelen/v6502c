@@ -25,7 +25,7 @@
 
 #include <stdio.h>
 #include <string.h>
-#include "test.h"
+#include "cputest.h"
 
 /* Test result counters */
 int tests_passed = 0;

@@ -1,5 +1,5 @@
-#ifndef _TEST_H_
-#define _TEST_H_
+#ifndef _CPUTEST_H_
+#define _CPUTEST_H_
 
 /**
  * Copyright (c) 2025 Andrew C. Young

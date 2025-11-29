@@ -2,7 +2,7 @@
 ; This file is loaded by the emulator on startup
 
 ; First, load the BASIC ROM
-LOAD rom/v6502c.woz
+LOAD rom/basic.woz
 
 ; Start execution at COLD_START
 GO F01A
