@@ -88,7 +88,14 @@ byte acia_read(acia_t *dev, byte reg) {
 
     switch (reg & 0x03) {
     case ACIA_REG_DATA:
-        /* Read received data, clear RDRF */
+        /* Read received data */
+        /* If buffer is empty but input available, read it now */
+        if (!dev->rx_full && dev->input != NULL && input_available(dev->input)) {
+            c = fgetc(dev->input);
+            if (c != EOF) {
+                dev->rx_data = (byte)c;
+            }
+        }
         dev->rx_full = 0;
         return dev->rx_data;
 
@@ -97,16 +104,10 @@ byte acia_read(acia_t *dev, byte reg) {
         status = ACIA_STATUS_TDRE; /* Always ready to transmit */
 
         /* Check if we have buffered data or new input available */
-        if (dev->rx_full) {
+        /* Note: Don't consume input here - just check availability */
+        /* Input is only consumed when data register is read */
+        if (dev->rx_full || (dev->input != NULL && input_available(dev->input))) {
             status |= ACIA_STATUS_RDRF;
-        } else if (dev->input != NULL && input_available(dev->input)) {
-            /* Buffer the incoming character */
-            c = fgetc(dev->input);
-            if (c != EOF) {
-                dev->rx_data = (byte)c;
-                dev->rx_full = 1;
-                status |= ACIA_STATUS_RDRF;
-            }
         }
 
         return status;
