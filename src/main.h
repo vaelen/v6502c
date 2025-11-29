@@ -36,6 +36,23 @@ typedef struct addrr {
   address end;
 } address_range;
 
+typedef struct addrrnode {
+  address_range range;
+  address_range_node *next;
+  address_range_node *prev;
+} address_range_node;
+
+/**
+ * A list of address ranges.
+ * The list is implemented as a doubly-linked list.
+ * The list is kept sorted by start address.
+ * Ranges may not overlap.
+ */
+typedef struct addrrlist {
+  address_range_node *first;
+  address_range_node *last;
+} address_range_list;
+
 void tick(void);
 
 int read_line(FILE *in, char *buf, int maxlen);
@@ -57,5 +74,14 @@ void read_lines(cpu *c, FILE *in);
 int write_file(cpu *c, address_range ar, char *filename);
 int read_file(cpu *c, char *filename);
 int parse_command(cpu *c, char *cmdbuf);
+
+void init_address_range_list(address_range_list *list);
+void add_address_range(address_range_list *list, address_range ar);
+void remove_address_range(address_range_list *list, address_range ar);
+void clear_address_range_list(address_range_list *list);
+
+void add_protected_range(address_range ar);
+void remove_protected_range(address_range ar);
+bool is_address_protected(address_range_list *list, address a);
 
 #endif

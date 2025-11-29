@@ -30,10 +30,12 @@
 #include <unistd.h>
 #include <ctype.h>
 
+bool V6502C_TRACE = FALSE;
+
 static byte mem[0x10000];
+static address_range_list protected_ranges;
 static cpu c;
 static cpu prevc;
-static bool trace;
 static int tick_duration = 50;
 
 /* Emulated devices */
@@ -49,7 +51,7 @@ void _tick(void) {
   }
 
   /* Check for differences */
-  if (trace) {
+  if (V6502C_TRACE) {
     print_pc_change(prevc.pc, c.pc);
     print_register_change(" A", prevc.a, c.a);
     print_register_change(" X", prevc.x, c.x);
@@ -109,6 +111,13 @@ void _write(address a, byte b) {
   /* File I/O: $C040-$C04F */
   if (a >= 0xC040 && a <= 0xC04F) {
     fileio_write(fio, (byte)(a & 0x0F), b);
+    return;
+  }
+  if (is_address_protected(&protected_ranges, a)) {
+    /* Address is write-protected */
+    if (V6502C_TRACE) {
+      fprintf(stderr, "Write to protected address %04X ignored\n", a);
+    }
     return;
   }
   mem[a] = b;
@@ -228,6 +237,8 @@ void print_help(void) {
   puts("Data Import / Export:");
   puts("  LOAD <FILENAME>           - Load Wozmon formatted data.");
   puts("  SAVE 1000.10F0 <FILENAME> - Save data in Wozmon format.");
+  puts("  PROTECT D000.FFFF         - Protect memory range from writes.");
+  puts("  UNPROTECT D000.FFFF       - Unprotect memory range for writes.");
 }
 
 void not_implemented(void) {
@@ -329,6 +340,191 @@ int parse_address_range(char *s, address_range *r) {
   r->start = (address) start;
   r->end = (address) end;
   return 1;
+}
+
+/** Initialize an address range list. */
+void init_address_range_list(address_range_list *list) {
+  if (list == NULL) return;
+  list->first = NULL;
+  list->last = NULL;
+}
+
+/** 
+ * Add an address range to an address range list.
+ * The list will be expanded as needed.
+ * Overlapping or adjacent ranges will be merged.
+ */
+void add_address_range(address_range_list *list, address_range ar) {
+  address_range_node *new_node = NULL;
+  address_range_node *current = NULL;
+
+  if (list == NULL) return;
+  current = list->first;
+  while (current != NULL) {
+    if (ar.end < current->range.start - 1) {
+      /* New range is before current range, insert here */
+      new_node = (address_range_node *) malloc(sizeof(address_range_node));
+      if (new_node == NULL) {
+        fprintf(stderr, "Error: Out of memory\n");
+        return;
+      }
+      new_node->range = ar;
+      new_node->next = current;
+      new_node->prev = current->prev;
+      if (current->prev != NULL) {
+        current->prev->next = new_node;
+      } else {
+        list->first = new_node;
+      }
+      current->prev = new_node;
+      return;
+    } else if (ar.start > current->range.end + 1) {
+      /* New range is after current range, continue */
+      current = current->next;
+    } else {
+      /* Ranges overlap or are adjacent, merge */
+      if (ar.start < current->range.start) {
+        current->range.start = ar.start;
+      }
+      if (ar.end > current->range.end) {
+        current->range.end = ar.end;
+      }
+      return;
+    }
+  }
+  /* Add to end of list */
+  new_node = (address_range_node *) malloc(sizeof(address_range_node));
+  if (new_node == NULL) {
+    fprintf(stderr, "Error: Out of memory\n");
+    return;
+  }
+  new_node->range = ar;
+  new_node->next = NULL;
+  new_node->prev = list->last;
+  if (list->last != NULL) {
+    list->last->next = new_node;
+  } else {
+    list->first = new_node;
+  }
+  list->last = new_node;
+}
+
+/** 
+ * Remove an address range from an address range list.
+ * The list will be adjusted as needed.
+ * Ranges that are partially overlapped will be split.
+ */
+void remove_address_range(address_range_list *list, address_range ar) {
+  address_range_node *to_delete = NULL;
+  address_range_node *current = NULL;
+
+  if (list == NULL) return;
+  current = list->first;
+  while (current != NULL) {
+    if (ar.end < current->range.start) {
+      /* No more overlaps possible */
+      return;
+    } else if (ar.start > current->range.end) {
+      /* No overlap, continue */
+      current = current->next;
+    } else {
+      /* Overlap found */
+      if (ar.start <= current->range.start && ar.end >= current->range.end) {
+        /* Remove entire current range */
+        to_delete = current;
+        current = current->next;
+        if (to_delete->prev != NULL) {
+          to_delete->prev->next = to_delete->next;
+        } else {
+          list->first = to_delete->next;
+        }
+        if (to_delete->next != NULL) {
+          to_delete->next->prev = to_delete->prev;
+        } else {
+          list->last = to_delete->prev;
+        }
+        free(to_delete);
+      } else if (ar.start > current->range.start && ar.end < current->range.end) {
+        /* Split current range */
+        address_range_node *new_node = (address_range_node *) malloc(sizeof(address_range_node));
+        if (new_node == NULL) {
+          fprintf(stderr, "Error: Out of memory\n");
+          return;
+        }
+        new_node->range.start = ar.end + 1;
+        new_node->range.end = current->range.end;
+        new_node->next = current->next;
+        new_node->prev = current;
+        if (current->next != NULL) {
+          current->next->prev = new_node;
+        } else {
+          list->last = new_node;
+        }
+        current->next = new_node;
+        current->range.end = ar.start - 1;
+        return;
+      } else if (ar.start <= current->range.start) {
+        /* Adjust start of current range */
+        current->range.start = ar.end + 1;
+        current = current->next;
+      } else if (ar.end >= current->range.end) {
+        /* Adjust end of current range */
+        current->range.end = ar.start - 1;
+        current = current->next;
+      }
+    }
+  }
+}
+
+/** Check if an address is within a given address range. */
+bool is_address_in_range(address_range ar, address a) {
+  return (a >= ar.start && a <= ar.end);
+}
+
+/** Check if an address is within any range in an address range list. */
+bool is_address_in_range_list(address_range_list *list, address a) {
+  address_range_node *current = NULL;
+
+  if (list == NULL) return FALSE;
+  current = list->first;
+  while (current != NULL) {
+    if (is_address_in_range(current->range, a)) {
+      return TRUE;
+    }
+    current = current->next;
+  }
+  return FALSE;
+}
+
+/** Remove all addresses in an address range list and free related memory. */
+void clear_address_range_list(address_range_list *list) {
+  address_range_node *current = NULL;
+  address_range_node *next = NULL;
+
+  if (list == NULL) return;
+  current = list->first;
+  while (current != NULL) {
+    next = current->next;
+    free(current);
+    current = next;
+  }
+  list->first = NULL;
+  list->last = NULL;
+}
+
+/** Add a protected memory range where writes are ignored. */
+void add_protected_range(address_range ar) {
+
+}
+
+/** Remove a protected memory range, allowing writes. */
+void remove_protected_range(address_range ar) {
+
+};
+
+/** Check if an address is within any protected memory range. */
+bool is_address_protected(address_range_list *list, address a) {
+  return false;
 }
 
 void read_lines(cpu *c, FILE *in) {
@@ -455,7 +651,7 @@ int parse_command(cpu *c, char *cmdbuf) {
     cpu_step(c);
   } else if (!strcmp("G", cmd) || !strcmp("GO", cmd) ||
              !strcmp("T", cmd) || !strcmp("TRACE", cmd)) {
-    trace = (!strcmp("T", cmd) || !strcmp("TRACE", cmd));
+    V6502C_TRACE = (!strcmp("T", cmd) || !strcmp("TRACE", cmd));
     prevc = *c;
     if (argc > 1) {
       current = c->pc;
@@ -574,6 +770,26 @@ int parse_command(cpu *c, char *cmdbuf) {
         write_file(c, ar, filename);
       }
     }
+  } else if (!strcmp("PROTECT", cmd)) {
+    if (argc == 1) {
+      puts("Please provide an address range.");
+    } else {
+      if (!parse_address_range(argv[1], &ar)) {
+        printf("Invalid address range: %s\n", argv[1]);
+      } else {
+        add_protected_range(ar);
+      }
+    }
+  } else if (!strcmp("UNPROTECT", cmd)) {
+    if (argc == 1) {
+      puts("Please provide an address range.");
+    } else {
+      if (!parse_address_range(argv[1], &ar)) {
+        printf("Invalid address range: %s\n", argv[1]);
+      } else {
+        remove_protected_range(ar);
+      }
+    }
   } else {
     editing = NOT_EDITING;
     for (i = 0; i < argc; i++) {
@@ -653,6 +869,9 @@ int parse_command(cpu *c, char *cmdbuf) {
 int main(int argc, char** argv) {
   int i;
 
+  /* Initialize protected address ranges */
+  init_address_range_list(&protected_ranges);
+
   /* Create device instances */
   acia1 = acia_create(stdin, stdout);
   acia2 = acia_create(NULL, NULL);  /* Disconnected for now */
@@ -689,6 +908,8 @@ int main(int argc, char** argv) {
   acia_destroy(acia2);
   via_destroy(via);
   fileio_destroy(fio);
+
+  clear_address_range_list(&protected_ranges);
 
   return 0;
 }

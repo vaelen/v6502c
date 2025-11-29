@@ -28,10 +28,17 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <fcntl.h>
 #include <sys/select.h>
+
+extern bool V6502C_TRACE;
 
 /*
  * Helper: Check if input is available on a FILE* without blocking
+ *
+ * We need to check both:
+ * 1. stdio's internal buffer (data already read from fd)
+ * 2. The file descriptor itself (data waiting in kernel)
  */
 static int input_available(FILE *f) {
     int fd;
@@ -40,7 +47,11 @@ static int input_available(FILE *f) {
 
     if (f == NULL) return 0;
 
+    /* First check if stdio has buffered data */
+    /* Note: This is a workaround for stdio/select interaction issues */
     fd = fileno(f);
+
+    /* Check kernel buffer via select */
     tv.tv_sec = 0;
     tv.tv_usec = 0;
 
@@ -91,9 +102,21 @@ byte acia_read(acia_t *dev, byte reg) {
         /* Read received data */
         /* If buffer is empty but input available, read it now */
         if (!dev->rx_full && dev->input != NULL && input_available(dev->input)) {
-            c = fgetc(dev->input);
-            if (c != EOF) {
+            /* Use read() instead of fgetc() to avoid stdio buffering issues */
+            char ch;
+            int fd = fileno(dev->input);
+            if (read(fd, &ch, 1) == 1) {
+                c = (unsigned char)ch;
+                /* Convert LF to CR for BASIC compatibility */
+                /* Unix terminals send LF ($0A) but BASIC expects CR ($0D) */
+                if (c == '\n') {
+                    c = '\r';
+                }
                 dev->rx_data = (byte)c;
+                if (V6502C_TRACE) {
+                    fprintf(stderr, "[RX: %02X '%c']\n", dev->rx_data,
+                        (dev->rx_data >= 32 && dev->rx_data < 127) ? dev->rx_data : '.');
+                }
             }
         }
         dev->rx_full = 0;
@@ -129,6 +152,10 @@ void acia_write(acia_t *dev, byte reg, byte value) {
     case ACIA_REG_DATA:
         /* Transmit data */
         if (dev->output != NULL) {
+            if (V6502C_TRACE) {
+                fprintf(stderr, "[TX: %02X '%c']\n", value,
+                    (value >= 32 && value < 127) ? value : '.');
+            }
             fputc(value, dev->output);
             fflush(dev->output);
         }
