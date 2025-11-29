@@ -66,8 +66,8 @@ enum instruction_t instructions[] = {
   I_CLC, I_ORA, I_INC, I_TRB, I_TRB, I_ORA, I_ASL, I_BBR1,
   /* 20     21     22     23     24     25     26     27 */ 
   I_JSR, I_AND, I_NOP, I_NOP, I_BIT, I_AND, I_ROL, I_RMB2,
-  /* 28     29     2A     2B     2C     2D     2E     2F */ 
-  I_PHP, I_AND, I_ROL, I_NOP, I_BIT, I_AND, I_ROL, I_BBR2,
+  /* 28     29     2A     2B     2C     2D     2E     2F */
+  I_PLP, I_AND, I_ROL, I_NOP, I_BIT, I_AND, I_ROL, I_BBR2,
   /* 30     31     32     33     34     35     36     37 */ 
   I_BMI, I_AND, I_AND, I_NOP, I_BIT, I_AND, I_ROL, I_RMB3,
   /* 38     39     3A     3B     3C     3D     3E     3F */ 
