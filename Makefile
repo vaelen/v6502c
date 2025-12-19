@@ -23,8 +23,11 @@ test: bin/cputest bin/devtest bin/addrtest
 	./bin/devtest
 	./bin/addrtest
 
-bin/v6502c: bin obj obj/v6502.o obj/devices.o obj/addrlist.o src/main.c src/main.h
-	${CC} ${CCOPTS} obj/v6502.o obj/devices.o obj/addrlist.o src/main.c -o bin/v6502c
+obj/vmachine.o: obj src/vmachine.h src/vmachine.c src/v6502.h src/vtypes.h src/devices.h src/addrlist.h
+	${CC} ${CCOPTS} -c src/vmachine.c -o obj/vmachine.o
+
+bin/v6502c: bin obj obj/v6502.o obj/devices.o obj/addrlist.o obj/vmachine.o src/main.c src/main.h
+	${CC} ${CCOPTS} obj/v6502.o obj/devices.o obj/addrlist.o obj/vmachine.o src/main.c -o bin/v6502c
 
 obj/v6502.o: obj src/inst.h src/v6502.h src/v6502.c src/vtypes.h
 	${CC} ${CCOPTS} -c src/v6502.c -o obj/v6502.o
