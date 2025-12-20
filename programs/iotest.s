@@ -18,7 +18,7 @@ DSR         = $40       ; Bit 6: Data Set Ready
 IRQ         = $80       ; Bit 7: Interrupt Request
 
 ; Reset vector
-        .org $FFFC
+        .org $FFFE
         .word START     ; Reset vector points to START
 
         .org $D000
