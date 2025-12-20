@@ -4,6 +4,7 @@
 ; First, load the BASIC ROM
 LOAD rom/basic.woz
 
+; Start execution at COLD_START
 FFFE: 1B F0
 
 PROTECT C000.C000
@@ -11,5 +12,5 @@ PROTECT D000.FFFF
 
 VERBOSE
 
-; Start execution at COLD_START
-GO F01B
+RESET
+GO
