@@ -1,5 +1,13 @@
-#ifndef _MAIN_H_
-#define _MAIN_H_
+#ifndef _CLI_H_
+#define _CLI_H_
+
+#define __CREATE_PTYS__
+
+/* Enable POSIX/XSI functions like ptsname, fdopen in strict ANSI mode */
+#define _XOPEN_SOURCE 600
+
+#include <stdio.h>
+#include <unistd.h>
 
 /**
  * Copyright (c) 2025 Andrew C. Young
@@ -26,7 +34,31 @@
  *
  */
 
-int is_whitespace(char c);
-void parseargs(char *cmdbuf, int *argc, char **argv);
+#if defined(__CREATE_PTYS__)
+
+/**
+ * PTY handle structure returned by pty_alloc.
+ * Contains both the master file descriptor and the FILE* for convenience.
+ */
+typedef struct pty_handle {
+  int master_fd;
+  FILE *file;
+  char slave_name[256];
+} pty_handle_t;
+
+/**
+ * Allocate a new pseudo-terminal.
+ * Returns a pty_handle_t pointer on success, NULL on failure.
+ * The caller must call pty_destroy() to free resources.
+ */
+pty_handle_t *pty_alloc(void);
+
+/**
+ * Destroy a previously allocated PTY and free its resources.
+ * Closes the file descriptor and FILE*, then frees the handle.
+ */
+void pty_destroy(pty_handle_t *pty);
+
+#endif /* __unix__ || __APPLE__ || _POSIX_VERSION */
 
 #endif

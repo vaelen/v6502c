@@ -4,7 +4,9 @@ CCOPTS = -ansi -Wpedantic -Isrc
 # This should be the 6502 oldstyle version of vasm.
 VASM = vasm6502
 
-all: v6502c hello bin2woz
+all: libv6502 v6502c hello bin2woz
+
+libv6502: lib/libv6502.a lib/libv6502.so
 
 v6502c: bin/v6502c
 
@@ -26,8 +28,8 @@ test: bin/cputest bin/devtest bin/addrtest
 obj/vmachine.o: obj src/vmachine.h src/vmachine.c src/v6502.h src/vtypes.h src/devices.h src/addrlist.h
 	${CC} ${CCOPTS} -c src/vmachine.c -o obj/vmachine.o
 
-bin/v6502c: bin obj obj/v6502.o obj/devices.o obj/addrlist.o obj/vmachine.o src/main.c src/main.h
-	${CC} ${CCOPTS} obj/v6502.o obj/devices.o obj/addrlist.o obj/vmachine.o src/main.c -o bin/v6502c
+obj/monitor.o: obj src/monitor.h src/monitor.c src/vmachine.h src/v6502.h src/vtypes.h
+	${CC} ${CCOPTS} -c src/monitor.c -o obj/monitor.o
 
 obj/v6502.o: obj src/inst.h src/v6502.h src/v6502.c src/vtypes.h
 	${CC} ${CCOPTS} -c src/v6502.c -o obj/v6502.o
@@ -38,20 +40,47 @@ obj/devices.o: obj src/devices.h src/devices.c src/v6502.h src/vtypes.h
 obj/addrlist.o: obj src/addrlist.h src/addrlist.c src/vtypes.h
 	${CC} ${CCOPTS} -c src/addrlist.c -o obj/addrlist.o
 
-bin/hello: bin obj obj/v6502.o src/hello.c src/hello.h
-	${CC} ${CCOPTS} obj/v6502.o src/hello.c -o bin/hello
+# Static library
+lib/libv6502.a: lib obj/v6502.o obj/devices.o obj/addrlist.o obj/vmachine.o obj/monitor.o
+	ar rcs lib/libv6502.a obj/v6502.o obj/devices.o obj/addrlist.o obj/vmachine.o obj/monitor.o
 
-bin/cputest: bin obj obj/v6502.o src/cputest.c src/cputest.h
-	${CC} ${CCOPTS} obj/v6502.o src/cputest.c -o bin/cputest
+# Dynamic library (requires PIC object files)
+lib/libv6502.so: lib obj/v6502.pic.o obj/devices.pic.o obj/addrlist.pic.o obj/vmachine.pic.o obj/monitor.pic.o
+	${CC} -shared obj/v6502.pic.o obj/devices.pic.o obj/addrlist.pic.o obj/vmachine.pic.o obj/monitor.pic.o -o lib/libv6502.so
 
-bin/devtest: bin obj obj/v6502.o obj/devices.o src/devtest.c src/devices.h
-	${CC} ${CCOPTS} obj/v6502.o obj/devices.o src/devtest.c -o bin/devtest
+# PIC object files for shared library
+obj/v6502.pic.o: obj src/inst.h src/v6502.h src/v6502.c src/vtypes.h
+	${CC} ${CCOPTS} -fPIC -c src/v6502.c -o obj/v6502.pic.o
 
-bin/addrtest: bin obj obj/addrlist.o src/addrtest.c src/addrlist.h
-	${CC} ${CCOPTS} obj/addrlist.o src/addrtest.c -o bin/addrtest
+obj/devices.pic.o: obj src/devices.h src/devices.c src/v6502.h src/vtypes.h
+	${CC} ${CCOPTS} -fPIC -c src/devices.c -o obj/devices.pic.o
 
-bin/bin2woz: bin src/bin2woz.c
-	${CC} ${CCOPTS} src/bin2woz.c -o bin/bin2woz
+obj/addrlist.pic.o: obj src/addrlist.h src/addrlist.c src/vtypes.h
+	${CC} ${CCOPTS} -fPIC -c src/addrlist.c -o obj/addrlist.pic.o
+
+obj/vmachine.pic.o: obj src/vmachine.h src/vmachine.c src/v6502.h src/vtypes.h src/devices.h src/addrlist.h
+	${CC} ${CCOPTS} -fPIC -c src/vmachine.c -o obj/vmachine.pic.o
+
+obj/monitor.pic.o: obj src/monitor.h src/monitor.c src/vmachine.h src/v6502.h src/vtypes.h
+	${CC} ${CCOPTS} -fPIC -c src/monitor.c -o obj/monitor.pic.o
+
+bin/hello: bin lib/libv6502.a src/hello.c src/hello.h
+	${CC} ${CCOPTS} src/hello.c lib/libv6502.a -o bin/hello
+
+bin/cputest: bin lib/libv6502.a tests/cputest.c tests/cputest.h
+	${CC} ${CCOPTS} tests/cputest.c lib/libv6502.a -o bin/cputest
+
+bin/devtest: bin lib/libv6502.a tests/devtest.c src/devices.h
+	${CC} ${CCOPTS} tests/devtest.c lib/libv6502.a -o bin/devtest
+
+bin/addrtest: bin lib/libv6502.a tests/addrtest.c src/addrlist.h
+	${CC} ${CCOPTS} tests/addrtest.c lib/libv6502.a -o bin/addrtest
+
+bin/v6502c: bin lib/libv6502.a utils/cli.c utils/cli.h
+	${CC} ${CCOPTS} utils/cli.c lib/libv6502.a -o bin/v6502c
+
+bin/bin2woz: bin utils/bin2woz.c
+	${CC} ${CCOPTS} utils/bin2woz.c -o bin/bin2woz
 
 src/hello.h: src/hello.s
 	${VASM} -Fbin -dotdir -o src/hello.bin src/hello.s
@@ -72,8 +101,12 @@ bin:
 obj:
 	mkdir -p obj
 
+lib:
+	mkdir -p lib
+
 clean:
 	rm -f bin/*
 	rm -f obj/*
+	rm -f lib/*
 	rm -f src/*.*~
 	rm -f *.*~
