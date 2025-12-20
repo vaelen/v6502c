@@ -34,11 +34,6 @@
 #include <string.h>
 #include <ctype.h>
 
-/* Monitor entry point - starts the interactive REPL */
-void monitor_run(vmachine_t *machine) {
-  monitor_repl(machine, stdin);
-}
-
 /* Monitor REPL - reads commands from a file or stdin */
 void monitor_repl(vmachine_t *machine, FILE *in) {
   int l = 0;

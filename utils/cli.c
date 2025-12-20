@@ -244,7 +244,8 @@ pty_handle_t *pty_alloc(void) {
     if (tcgetattr(master_fd, &tio) == 0) {
       /* Set raw mode - disable canonical processing and echo */
       tio.c_lflag &= ~(ICANON | ECHO | ECHOE | ISIG);
-      tio.c_iflag &= ~(IXON | IXOFF | ICRNL | INLCR | IGNCR);
+      tio.c_iflag &= ~(IXON | IXOFF | ICRNL | IGNCR);
+      tio.c_iflag |= INLCR; /* Translate NL to CR for BASIC compatibility */
       tio.c_oflag &= ~(OPOST | ONLCR | OCRNL);
       /* 8 data bits, no parity */
       tio.c_cflag &= ~(PARENB | CSIZE);
@@ -351,15 +352,27 @@ int main(int argc, char** argv) {
   puts(V6502C_COPYRIGHT);
   puts("");
 
-  /* Process command-line files as scripts */
-  for (i = 2; i < argc; i++) {
-    read_file(&machine, argv[i]);
+  if (argc > 2) {
+    puts("Processing command-line script files...");
+    for (i = 2; i < argc; i++) {
+      read_file(&machine, argv[i]);
+    }
+  } else {
+    /* No script files provided, start with default settings. */
+    puts("No script files provided, starting with default settings...");
+    sleep(2); /* Give the user time to connect a terminal */
+    V6502C_TRACE = FALSE;
+    V6502C_VERBOSE = TRUE;
+    cpu_reset(&machine.c);
+    cpu_step(&machine.c);
+    cpu_run(&machine.c);
   }
 
   puts("Type 'help' for help.");
   puts("");
 
-  monitor_run(&machine);
+  monitor_repl(&machine, stdin);
+
   cleanup_vmachine(&machine);
 
 #if defined(__CREATE_PTYS__)
