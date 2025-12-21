@@ -38,6 +38,8 @@
 #include <addrlist.h>
 #include <devices.h>
 
+#define VMACHINE_RAM_START 0x0000
+#define VMACHINE_RAM_SIZE  0xC000
 #define VMACHINE_ROM_START 0xD000
 #define VMACHINE_ROM_SIZE  0x3000
 
@@ -49,7 +51,6 @@ typedef struct vmachine {
   address_range_list protected_ranges;
   cpu c;
   cpu prevc;
-  int tick_duration;
 
   /* Emulated devices */
   acia_t *acia1;   /* Primary serial: stdin/stdout */
@@ -64,7 +65,6 @@ typedef struct vmachine {
 typedef struct vmachine_config {
   byte *rom_data;
   size_t rom_size;
-  int tick_duration;
   FILE *acia1_input;
   FILE *acia1_output;
   FILE *acia2_input;

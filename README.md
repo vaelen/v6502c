@@ -13,7 +13,25 @@ $ ./bin/v6502c rom/basic.woz
 ## Running MSBASIC
 
 First, start the emulator:
-```
+```10 PRINT "HELLO WORLD"
+20 GOTO 10
+LIST
+
+ 10 PRINT "HELLO WORLD"
+ 20 GOTO 10
+OK
+RUN
+HELLO WORLD
+HELLO WORLD
+HELLO WORLD
+HELLO WORLD
+HELLO WORLD
+HELLO WORLD
+HELLO WORLD
+
+BREAK IN  10
+OK
+
 $ ./bin/v6502c rom/basic.woz
 ACIA1 PTY: /dev/pts/8
 ACIA2 PTY: /dev/pts/9

@@ -49,6 +49,7 @@ vmachine_t *g_machine;
 static void _tick(void) {
   if (g_machine != NULL) {
     machine_tick(g_machine);
+    usleep(1); /* Throttle to approximately 1MHz */
   }
 }
 
@@ -325,7 +326,6 @@ int main(int argc, char** argv) {
   memset(&config, 0, sizeof(config));
   config.rom_data = rom_data;
   config.rom_size = rom_size;
-  config.tick_duration = 50; /* 50ms per tick */
 
 #if defined(__CREATE_PTYS__)
   config.acia1_input = pty1 ? pty1->file : NULL;

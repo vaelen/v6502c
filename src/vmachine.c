@@ -30,8 +30,6 @@
 
 #include "vmachine.h"
 
-#include <unistd.h>
-
 void machine_tick(vmachine_t *machine) {
   /* Update VIA timers */
   if (machine->via != NULL) {
@@ -43,7 +41,6 @@ void machine_tick(vmachine_t *machine) {
     machine->trace_fn(machine, &machine->prevc, &machine->c);
     machine->prevc = machine->c;
   }
-  usleep(machine->tick_duration);
 }
 
 byte machine_read(vmachine_t *machine, address a) {
@@ -124,7 +121,6 @@ void init_vmachine(vmachine_t *machine, vmachine_config_t *config) {
   machine->acia2 = acia_create(config->acia2_input, config->acia2_output);
   machine->via = via_create();
   machine->fio = fileio_create();
-  machine->tick_duration = config->tick_duration;
   machine->trace_fn = NULL;
 
   cpu_init(&machine->c);
