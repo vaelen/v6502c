@@ -8,6 +8,7 @@ CONFIG_MONCOUT_DESTROYS_Y := 1
 CONFIG_PEEK_SAVE_LINNUM := 1
 CONFIG_PRINT_CR := 1 ; print CR when line end reached
 CONFIG_SCRTCH_ORDER := 1
+CONFIG_UPPER_INPUT := 1  ; Convert lowercase input to uppercase
 
 ; zero page
 ZP_START1 = $17

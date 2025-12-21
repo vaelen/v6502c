@@ -126,6 +126,21 @@ COUT:
         rts
 
 ; ----------------------------------------------------------------------------
+; GET_UPPER - Convert lowercase to uppercase for input
+; Input: X = index into INPUTBUFFERX
+; Output: A = character (uppercased if a-z)
+; Preserves: X, Y
+; ----------------------------------------------------------------------------
+GET_UPPER:
+        lda     INPUTBUFFERX,x
+        cmp     #'a'
+        bcc     @ret
+        cmp     #'z'+1
+        bcs     @ret
+        sbc     #$1F            ; A-Z = a-z - 32, carry clear so -31
+@ret:   rts
+
+; ----------------------------------------------------------------------------
 ; CPU Vectors
 ; Placed at $FFFA-$FFFF by the linker
 ; ----------------------------------------------------------------------------

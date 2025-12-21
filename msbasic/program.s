@@ -323,7 +323,11 @@ PARSE_INPUT_LINE:
         ldy     #$04
         sty     DATAFLG
 L246C:
+.ifdef CONFIG_UPPER_INPUT
+        jsr     GET_UPPER
+.else
         lda     INPUTBUFFERX,x
+.endif
 .ifdef CONFIG_CBM_ALL
         bpl     LC49E
         cmp     #$FF
@@ -364,7 +368,7 @@ L2496:
 L2497:
         inx
 L2498:
-.ifdef KBD
+.if .defined(KBD) || .defined(CONFIG_UPPER_INPUT)
         jsr     GET_UPPER
 .else
         lda     INPUTBUFFERX,x
