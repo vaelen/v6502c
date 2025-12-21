@@ -29,6 +29,14 @@ WIDTH2          := 56
 ; memory layout - RAM starts at $0400
 RAMSTART2 := $0400
 
+; ACIA input buffering - zero page location for pending character
+; Used by ACIA_PEEK/ACIA_GET to allow peeking at input without consuming
+ACIA_PENDING := $16
+
+; ACIA echo control - zero page flag for character echo
+; $00 = echo enabled (default), non-zero = echo disabled
+ACIA_NOECHO := $15
+
 ; I/O addresses for 6551 ACIA at $C010
 ACIA_DATA    := $C010
 ACIA_STATUS  := $C011

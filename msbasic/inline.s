@@ -71,3 +71,6 @@ GETLN:
         nop
         and     #$7F
     .endif
+    .ifdef v6502c
+        rts
+    .endif

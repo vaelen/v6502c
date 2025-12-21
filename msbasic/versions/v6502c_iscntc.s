@@ -1,22 +1,21 @@
 .segment "CODE"
 ; ----------------------------------------------------------------------------
 ; SEE IF CONTROL-C TYPED
-; Check the ACIA status register to see if a character is available.
-; If so, check if it's Ctrl-C ($03).
+; Uses ACIA_PEEK to check if a character is available without consuming it.
+; If Ctrl-C is found, it consumes the character and triggers STOP.
 ; Returns: Z flag set if Ctrl-C was pressed
 ; ----------------------------------------------------------------------------
 ISCNTC:
-        lda     ACIA_STATUS     ; Check ACIA status
-        and     #ACIA_RDRF      ; Is there a character?
-        beq     @no_key         ; No, return with Z clear
-        lda     ACIA_DATA       ; Read the character
+        jsr     ACIA_PEEK       ; Peek at next char (non-blocking)
+        beq     @no_key         ; No character available
         cmp     #$03            ; Is it Ctrl-C?
         beq     @ctrl_c         ; Yes, handle it
 @no_key:
         lda     #$01            ; Return non-zero (Z clear)
         rts
 @ctrl_c:
-        ; Fall through to STOP handler
+        ; It's Ctrl-C - consume it and fall through to STOP
+        jsr     ACIA_GET        ; Consume the Ctrl-C
         nop
         nop
         cmp     #$03
