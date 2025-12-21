@@ -3,23 +3,62 @@ v6502c
 
 v6502c implements an emulated 6502 CPU in ANSI C.
 
-## Note: This is a work in progress!
-The emulator should mostly work, but it has not been thoroughly tested.
-
-## Hello World
-The file `hello.c` includes a minimal example of embedding the emulator in another program.
-You can build and run it using the following commands:
-```
-$ make hello
-$ ./bin/hello
-```
-
 ## Building and Running the Emulator
+
 ```
 $ make
-$ ./bin/v6502c
+$ ./bin/v6502c rom/basic.woz
 ```
 
+## Running MSBASIC
+
+First, start the emulator:
+```
+$ ./bin/v6502c rom/basic.woz
+ACIA1 PTY: /dev/pts/8
+ACIA2 PTY: /dev/pts/9
+v6502c v1.0
+Copyright (c) 2025, Andrew C. Young <andrew@vaelen.org>
+
+No script files provided, starting with default settings...
+
+```
+
+Then connect to the first ptty:
+```
+$ tio /dev/pts/8
+[11:42:25.405] Connected
+
+WRITTEN BY WEILAND & GATES
+
+MEMORY SIZE? 
+UTERMINAL WIDTH? 80
+
+ 48143 BYTES FREE
+
+
+COPYRIGHT 1977 BY MICROSOFT CO.
+
+OK
+10 PRINT "HELLO WORLD"
+20 GOTO 10
+LIST
+
+ 10 PRINT "HELLO WORLD"
+ 20 GOTO 10
+OK
+RUN
+HELLO WORLD
+HELLO WORLD
+HELLO WORLD
+HELLO WORLD
+HELLO WORLD
+HELLO WORLD
+HELLO WORLD
+
+BREAK IN  10
+OK
+```
 
 ## Emulator Commands
 
