@@ -25,6 +25,7 @@ SPACE_FOR_GOSUB := $3E
 NULL_MAX        := $F0
 WIDTH           := 80
 WIDTH2          := 56
+CONFIG_FIXED_MEMSIZE := $C000   ; 49152 bytes (48K) - skip memory probe
 
 ; memory layout - RAM starts at $0400
 RAMSTART2 := $0400

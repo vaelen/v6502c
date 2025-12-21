@@ -126,14 +126,22 @@ L4098:
         ldx     #TEMPST
         stx     TEMPPT
 .ifndef CONFIG_CBM_ALL
+  .ifdef CONFIG_FIXED_MEMSIZE
+        ; Skip memory prompt and probe - use fixed size
+        lda     #<CONFIG_FIXED_MEMSIZE
+        sta     LINNUM
+        lda     #>CONFIG_FIXED_MEMSIZE
+        sta     LINNUM+1
+        jmp     L40FA
+  .else
         lda     #<QT_MEMORY_SIZE
         ldy     #>QT_MEMORY_SIZE
         jsr     STROUT
-  .ifdef APPLE
+    .ifdef APPLE
         jsr     INLINX
-  .else
+    .else
         jsr     NXIN
-  .endif
+    .endif
         stx     TXTPTR
         sty     TXTPTR+1
         jsr     CHRGET
@@ -141,6 +149,7 @@ L4098:
         beq     PR_WRITTEN_BY
         tay
         bne     L40EE
+  .endif
 .endif
 .ifndef CBM2
         lda     #<RAMSTART2
