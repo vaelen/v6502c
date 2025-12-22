@@ -13,6 +13,10 @@ L2423:
 ; ----------------------------------------------------------------------------
 INLIN:
         ldx     #$00
+.ifdef v6502c
+        jsr     GETLN_BUFFERED  ; Use buffered line input with editing
+        jmp     L29B9           ; Process the completed line
+.endif
 INLIN2:
         jsr     GETLN
     .ifndef CONFIG_NO_LINE_EDITING

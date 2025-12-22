@@ -84,6 +84,30 @@ ACIA_GET:
         rts
 
 ; ----------------------------------------------------------------------------
+; ACIA_GET_RAW - Get character without echo (for line editor)
+; Returns: A = character read
+; Preserves: X
+; Note: This is a blocking call - waits until a character is available
+; Note: Never echoes, regardless of ACIA_NOECHO setting
+; ----------------------------------------------------------------------------
+ACIA_GET_RAW:
+        lda     ACIA_PENDING    ; Check if we have a pending char
+        beq     @read_acia      ; No, read from ACIA
+        ; Return pending char and clear buffer
+        pha                     ; Save the character
+        lda     #$00
+        sta     ACIA_PENDING    ; Clear pending
+        pla                     ; Restore character
+        rts
+@read_acia:
+        lda     ACIA_STATUS     ; Check status
+        and     #ACIA_RDRF      ; Data ready?
+        beq     @read_acia      ; No, keep waiting
+        lda     ACIA_DATA       ; Read the character
+        and     #$7F            ; Strip high bit
+        rts
+
+; ----------------------------------------------------------------------------
 ; ECHO_ON - Enable character echo
 ; ----------------------------------------------------------------------------
 ECHO_ON:
@@ -139,6 +163,83 @@ GET_UPPER:
         bcs     @ret
         sbc     #$1F            ; A-Z = a-z - 32, carry clear so -31
 @ret:   rts
+
+; ----------------------------------------------------------------------------
+; Constants for line editing
+; ----------------------------------------------------------------------------
+CHAR_BS     := $08              ; Backspace key
+CHAR_DEL    := $7F              ; Delete key
+CHAR_CR     := $0D              ; Carriage return
+CHAR_BEL    := $07              ; Bell
+CHAR_USCORE := $5F              ; Underscore (legacy backspace)
+CHAR_AT     := $40              ; @ (legacy clear line)
+
+; ----------------------------------------------------------------------------
+; GETLN_BUFFERED - Read a line with editing support
+; Input: X = starting buffer index (usually 0)
+; Output: A = CR, line in INPUTBUFFER, X = length
+; Modifies: INPUTBUFFER
+; Preserves: nothing
+; ----------------------------------------------------------------------------
+GETLN_BUFFERED:
+        jsr     ECHO_OFF        ; Disable auto-echo during line input
+@loop:
+        jsr     ACIA_GET_RAW    ; Get char without echo
+        cmp     #CHAR_CR
+        beq     @done
+        cmp     #CHAR_BS
+        beq     @backspace
+        cmp     #CHAR_DEL
+        beq     @backspace
+        cmp     #CHAR_USCORE    ; Legacy backspace (_)
+        beq     @backspace_echo
+        cmp     #CHAR_AT        ; Legacy clear line (@)
+        beq     @clearline
+        cmp     #$20            ; < space?
+        bcc     @loop           ; Ignore control chars
+        cmp     #$7F            ; >= DEL?
+        bcs     @loop           ; Ignore
+        ; Printable character
+        cpx     #$47            ; Buffer full? (71 chars max)
+        bcs     @bell
+        jsr     COUT            ; Echo it
+        sta     INPUTBUFFER,x
+        inx
+        bne     @loop           ; Always branches (X won't wrap to 0)
+@bell:
+        lda     #CHAR_BEL
+        jsr     COUT
+        jmp     @loop
+@backspace:
+        cpx     #$00            ; Buffer empty?
+        beq     @loop           ; Yes, ignore
+        dex
+        lda     #CHAR_BS        ; Send BS
+        jsr     COUT
+        lda     #' '            ; Send space (erase)
+        jsr     COUT
+        lda     #CHAR_BS        ; Send BS again
+        jsr     COUT
+        jmp     @loop
+@backspace_echo:
+        cpx     #$00            ; Buffer empty?
+        beq     @loop           ; Yes, ignore
+        dex
+        lda     #CHAR_USCORE    ; Echo the underscore
+        jsr     COUT
+        jmp     @loop
+@clearline:
+        lda     #CHAR_AT        ; Echo the @
+        jsr     COUT
+        lda     #CHAR_CR        ; New line
+        jsr     COUT
+        ldx     #$00            ; Reset buffer
+        jmp     @loop
+@done:
+        jsr     COUT            ; Echo the CR
+        jsr     ECHO_ON         ; Re-enable echo
+        lda     #CHAR_CR
+        rts
 
 ; ----------------------------------------------------------------------------
 ; CPU Vectors
