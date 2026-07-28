@@ -35,7 +35,8 @@
 
 #include "hello.h"
 
-byte mem[0xFFFF];
+byte mem[0x10000];
+cpu c;
 
 byte read(address a) {
   if (a == 0xFF00) {
@@ -51,12 +52,16 @@ void write(address a, byte b) {
     putchar(b);
     return;
   }
+  if (a == 0xFF01) {
+    /** Halt device: BRK does not stop the CPU, it vectors through $FFFE,
+        so the program signals completion by writing here. */
+    cpu_halt(&c);
+    return;
+  }
   mem[a] = b;
 }
 
 int main(int argc, char** argv) {
-  cpu c;
-
   /** Initialize CPU data structure */
   cpu_init(&c);
 
